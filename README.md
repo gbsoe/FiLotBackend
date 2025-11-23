@@ -8,6 +8,10 @@
 
 This phase establishes the backend foundation without business logic or database connections.
 
+## Phase 2 (Database) - ✅ COMPLETED
+
+This phase adds PostgreSQL database integration with Drizzle ORM, user schema, and document management.
+
 ### What Has Been Built
 
 #### 1. Project Structure
@@ -18,6 +22,11 @@ backend/
 │   │   └── env.ts                 # Environment configuration
 │   ├── controllers/
 │   │   └── health.controller.ts   # Health check controller
+│   ├── db/                        # Database layer (Tranche 2)
+│   │   ├── schema.ts              # Drizzle ORM schema definitions
+│   │   ├── index.ts               # Database connection
+│   │   ├── utils.ts               # Database utility functions
+│   │   └── migrations/            # Generated migration files
 │   ├── routes/
 │   │   └── health.routes.ts       # Health check routes
 │   ├── middlewares/
@@ -26,7 +35,11 @@ backend/
 │   │   └── logger.ts              # Logging utility
 │   ├── app.ts                     # Express app setup
 │   └── index.ts                   # Server entry point
+├── docs/
+│   ├── TRANCHE_1_DOCUMENTATION.md # Phase 1 documentation
+│   └── DB_OVERVIEW.md             # Database documentation (Tranche 2)
 ├── package.json
+├── drizzle.config.ts              # Drizzle kit configuration (Tranche 2)
 ├── tsconfig.json                  # TypeScript strict config
 ├── .eslintrc.json                 # ESLint config
 ├── .prettierrc                    # Prettier config
@@ -42,10 +55,13 @@ backend/
 - `helmet` - Security headers
 - `morgan` - HTTP request logging
 - `dotenv` - Environment variables
+- `drizzle-orm` - Type-safe ORM for PostgreSQL ✅
+- `drizzle-kit` - Database migration toolkit ✅
+- `pg` - PostgreSQL client ✅
 - `zod` - Schema validation (ready for use)
-- `jsonwebtoken` - JWT tokens (ready for Tranche 2)
-- `bcryptjs` - Password hashing (ready for Tranche 2)
-- `multer` - File uploads (ready for Tranche 2)
+- `jsonwebtoken` - JWT tokens (ready for Tranche 3)
+- `bcryptjs` - Password hashing (ready for Tranche 3)
+- `multer` - File uploads (ready for Tranche 4)
 - `uuid` - Unique ID generation
 
 **Development**:
@@ -154,6 +170,9 @@ npm start
 | `npm start` | Run production build |
 | `npm run lint` | Run ESLint |
 | `npm run format` | Format code with Prettier |
+| `npm run db:generate` | Generate Drizzle migration files |
+| `npm run db:push` | Push schema changes to database |
+| `npm run db:studio` | Open Drizzle Studio (visual DB browser) |
 
 ---
 
@@ -164,11 +183,11 @@ Create a `.env` file in the `backend/` folder with these variables:
 ```env
 PORT=8080
 JWT_SECRET=your-secret-key-here
-DATABASE_URL=
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
 UPLOAD_DIR=./uploads
 ```
 
-**Note**: `DATABASE_URL` is not used yet - this will be set up in Tranche 2.
+**Note**: `DATABASE_URL` and other PostgreSQL credentials are automatically managed by Replit's built-in database.
 
 ---
 
@@ -192,32 +211,39 @@ Returns server health status.
 
 ---
 
-## What Comes Next (Tranche 2: Database)
+## Database Schema (Tranche 2)
+
+### Users Table
+Stores user account information and authentication details.
+
+**Columns**: `id` (UUID), `email`, `password_hash`, `display_name`, `mobile`, `ktp_url`, `npwp_url`, `role`, `created_at`, `updated_at`
+
+### Documents Table  
+Stores uploaded documents and their processing status.
+
+**Columns**: `id` (UUID), `user_id`, `type`, `file_url`, `status`, `result_json`, `created_at`
+
+**For detailed database documentation**, see `backend/docs/DB_OVERVIEW.md`
+
+---
+
+## What Comes Next (Tranche 3: Authentication)
 
 The next phase will add:
 
-1. **PostgreSQL Database Connection**
-   - Neon/Replit Postgres integration
-   - Database schema design
-   - Migration system
-
-2. **User Management**
-   - Users table (id, email, password_hash, display_name, mobile, role, created_at)
-   - Profile storage (KTP/NPWP data)
-
-3. **Authentication Endpoints**
+1. **Authentication Endpoints**
    - `POST /auth/register` - User registration
    - `POST /auth/login` - User login (JWT tokens)
    - `POST /auth/logout` - User logout
    - `POST /auth/refresh` - Refresh JWT token
    - `POST /auth/forgot-password` - Password reset request
 
-4. **Profile Endpoints**
+2. **Profile Endpoints**
    - `GET /profile` - Get user profile
    - `PUT /profile` - Update user profile
    - `PATCH /profile/password` - Change password
 
-5. **Document Upload Endpoints**
+3. **Document Upload Endpoints**
    - `POST /documents/ktp` - Upload KTP (Indonesian ID)
    - `POST /documents/npwp` - Upload NPWP (Tax ID)
 
@@ -228,18 +254,19 @@ The next phase will add:
 - **Runtime**: Node.js 20
 - **Language**: TypeScript (strict mode)
 - **Framework**: Express.js
+- **Database**: PostgreSQL with Drizzle ORM ✅
 - **Security**: Helmet, CORS
 - **Logging**: Morgan + Custom Logger
 - **Validation**: Zod (ready for use)
-- **Auth**: JWT + bcrypt (ready for use)
-- **File Upload**: Multer (ready for use)
+- **Auth**: JWT + bcrypt (ready for Tranche 3)
+- **File Upload**: Multer (ready for Tranche 4)
 
 ---
 
 ## Project Status
 
 ✅ **Tranche 1 (Initialization)** - COMPLETE  
-⏳ **Tranche 2 (Database)** - NOT STARTED  
+✅ **Tranche 2 (Database)** - COMPLETE  
 ⏳ **Tranche 3 (Authentication)** - NOT STARTED  
 ⏳ **Tranche 4 (Documents & OCR)** - NOT STARTED  
 ⏳ **Tranche 5 (Chat & AI)** - NOT STARTED  
@@ -251,6 +278,6 @@ The next phase will add:
 - This backend is **100% separate** from the Expo frontend
 - The frontend currently uses AsyncStorage mock services
 - Backend will be consumed via HTTP API calls
-- Database connection will be added in Tranche 2
+- Database is connected using PostgreSQL + Drizzle ORM ✅
 - No authentication logic implemented yet (Tranche 3)
 - Server binds to `0.0.0.0:8080` for accessibility
