@@ -1,0 +1,108 @@
+You are the Replit Agent responsible for backend development.
+
+=== CONTEXT ===
+Here is the complete audit of the FiLot FRONTEND.  
+Use this audit to fully understand the existing Expo app, its architecture, auth flow, data models, and expected backend behavior.
+
+[BEGIN FRONTEND AUDIT DOCUMENT]
+<<PASTE THE CONTENTS OF /mnt/data/FRONTEND_AUDIT.md HERE EXACTLY>>
+[END FRONTEND AUDIT DOCUMENT]
+
+IMPORTANT:
+• This backend MUST remain 100% separate from the Expo frontend.  
+• Backend will be consumed by HTTP API calls from the FiLot app later.  
+• Follow the audit above so backend design fully matches frontend login, register, profile, KTP/NPWP upload, and session logic.
+
+=== YOUR OBJECTIVES FOR TRANCHE 1 ===
+
+This tranche focuses ONLY on backend bootstrapping — no business logic yet.
+
+1. **Create a new folder**
+   ./backend/
+
+2. **Initialize a Node.js backend project**
+   • Use TypeScript  
+   • tsconfig.json with strict mode  
+   • Add eslint + prettier (simple config)  
+   • Project must run with:  
+     → npm run dev (ts-node-dev)  
+     → npm run build (tsc)  
+     → npm start (node dist/index.js)
+
+3. **Install core backend dependencies**
+   Required:
+   - express
+   - cors
+   - dotenv
+   - helmet
+   - morgan
+   - zod
+   - jsonwebtoken
+   - bcryptjs
+   - multer (for future doc uploads)
+   - uuid
+
+   Dev:
+   - typescript
+   - ts-node-dev
+   - @types/node
+   - @types/express
+   - @types/cors
+   - @types/multer
+
+4. **Create base backend structure**
+   /backend/src/
+     index.ts                    → Express server bootstrap  
+     app.ts                      → Express app, middleware  
+     config/  
+        env.ts                   → environment loader  
+     routes/  
+        health.routes.ts         → simple healthcheck  
+     controllers/  
+        health.controller.ts  
+     middlewares/  
+        errorHandler.ts  
+     utils/  
+        logger.ts  
+
+5. **Implement basic server**
+   • GET /health → { status: "ok", uptime, timestamp }  
+   • Global error handler  
+   • Logging via morgan  
+   • CORS enabled  
+
+6. **Create .env.example**
+   PORT=8080
+   JWT_SECRET=
+   DATABASE_URL=   (for next tranche)
+   UPLOAD_DIR=./uploads
+
+7. **Update project root README.md**
+   Add a new section:
+   "FiLot Backend — Phase 1 (Initialization)"  
+   • How to run  
+   • Project structure  
+   • What has been prepared  
+   • What comes next (Tranche 2: Database)  
+
+8. **NO connection to database yet.**  
+   That begins in Tranche 2.
+
+9. **Ensure the code is clean, typed, and minimal.**
+   This is a pure bootstrap phase.
+
+=== IMPORTANT RULES ===
+• DO NOT modify the Expo frontend.
+• DO NOT create authentication logic yet.
+• DO NOT create profile endpoints yet.
+• DO NOT connect to Neon/Postgres yet.
+• This tranche sets up clean backend foundation only.
+
+=== WHEN YOU ARE DONE ===
+Reply with:
+✔ Folder created  
+✔ Backend initialized  
+✔ Dependencies installed  
+✔ Server running on /health  
+✔ README updated  
+✔ Ready for Tranche 2
