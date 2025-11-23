@@ -1,0 +1,200 @@
+REPLIT AGENT PROMPT — TRANCHE 2: DATABASE + USER SCHEMA
+
+Read all existing backend files created in Tranche 1 and follow the established architecture.
+
+Your tasks for this tranche:
+
+---
+
+# **1. Install Database Tools**
+
+Use Neon PostgreSQL. Do NOT modify package.json manually.
+
+Install the following:
+
+```
+npm install drizzle-orm drizzle-kit pg
+```
+
+Create new file:
+
+```
+drizzle.config.ts
+```
+
+Content (use environment variables):
+
+```ts
+import type { Config } from "drizzle-kit";
+
+export default {
+  schema: "./src/db/schema.ts",
+  out: "./src/db/migrations",
+  driver: "pg",
+  dbCredentials: {
+    connectionString: process.env.DATABASE_URL!,
+  },
+} satisfies Config;
+```
+
+---
+
+# **2. Create DB Folder Structure**
+
+Create the following folder and files:
+
+```
+src/db/
+  schema.ts
+  index.ts
+  migrations/   ← drizzle will auto-fill this later
+  utils.ts
+```
+
+---
+
+# **3. Implement Drizzle + PG Connection**
+
+In `src/db/index.ts`:
+
+```ts
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const db = drizzle(pool);
+```
+
+---
+
+# **4. Create User + Documents Schema**
+
+In `src/db/schema.ts`:
+
+```ts
+import { pgTable, text, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: varchar("display_name", { length: 255 }),
+  mobile: varchar("mobile", { length: 50 }),
+  ktpUrl: text("ktp_url"),
+  npwpUrl: text("npwp_url"),
+  role: varchar("role", { length: 50 }).default("user"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const documents = pgTable("documents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // KTP, NPWP, OTHER
+  fileUrl: text("file_url"),
+  status: varchar("status", { length: 50 }).default("pending"),
+  resultJson: text("result_json"), // For BULI2 future
+  createdAt: timestamp("created_at").defaultNow(),
+});
+```
+
+---
+
+# **5. Create Utility Functions**
+
+In `src/db/utils.ts`:
+
+```ts
+export function mapUser(row: any) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.display_name,
+    mobile: row.mobile,
+    ktpUrl: row.ktp_url,
+    npwpUrl: row.npwp_url,
+    role: row.role,
+    createdAt: row.created_at,
+  };
+}
+```
+
+---
+
+# **6. Run Database Migration**
+
+Run:
+
+```
+npx drizzle-kit generate
+npx drizzle-kit push
+```
+
+---
+
+# **7. Add Database README**
+
+Create file:
+
+```
+DB_OVERVIEW.md
+```
+
+Content:
+
+* How DB is structured
+* Tables included
+* Migration process
+* Required environment variables
+* Testing commands
+
+---
+
+# **8. Update MAIN README.md**
+
+Add:
+
+* “Backend now connected to PostgreSQL using Drizzle ORM”
+* Database folder explanation
+* Migration instructions
+* User schema description
+
+---
+
+# **9. Produce a Final Report**
+
+Create file:
+
+```
+TRANCHE_2_REPORT.md
+```
+
+Include:
+
+* Installed packages
+* Created schema
+* Migration results
+* Folder structure
+* Any errors encountered
+* Next steps
+
+---
+
+# **IMPORTANT RULES**
+
+* Follow the established architecture from Tranche 1
+* Do NOT modify any frontend files
+* Do NOT create authentication yet (Tranche 3)
+* Do NOT create BULI2 bridge yet (Tranche 5)
+* Always document everything in `.md` files
+* Keep code strictly Typescript + Express
+
+---
+
+# **RUN NOW**
+
+Execute all steps above and generate `TRANCHE_2_REPORT.md` at completion.
