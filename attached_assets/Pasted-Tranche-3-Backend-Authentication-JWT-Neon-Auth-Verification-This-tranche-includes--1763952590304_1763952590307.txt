@@ -1,0 +1,245 @@
+Tranche 3 — Backend Authentication (JWT + Neon Auth Verification)
+
+This tranche includes:
+
+---
+
+## **1. Token Verification (Critical)**
+
+Backend must verify:
+
+* `access_token`
+* `refresh_token`
+
+Using JWKS from Neon Auth:
+
+```
+https://api.stack-auth.com/api/v1/projects/e449e433-ad5a-4de0-8393-a629e9b5856e/.well-known/jwks.json
+```
+
+We will implement:
+
+* JWKS fetcher
+* Token decoder
+* Token validator
+* Middleware: `authMiddleware.ts`
+* User extraction from JWT payload
+
+---
+
+## **2. Authentication Routes**
+
+### **POST /auth/refresh**
+
+Input:
+
+```json
+{ "refreshToken": "<refresh_token>" }
+```
+
+Response:
+
+```json
+{
+  "accessToken": "<new_access_token>",
+  "refreshToken": "<new_refresh_token>"
+}
+```
+
+---
+
+## **3. Profile Routes (Used by Frontend Now)**
+
+Already supported in frontend, now backend must implement:
+
+### **GET /profile**
+
+* Return current user profile
+* Requires Bearer token
+* Parse user ID from JWT
+
+### **PUT /profile**
+
+* Update fields: displayName, mobile, ktpUrl, npwpUrl
+* Store in `users` table
+
+---
+
+## **4. Document Storage Prep**
+
+(Not OCR yet)
+
+Implement upload endpoints:
+
+### **POST /documents/upload**
+
+* Accept base64 or fileURL
+* Create record in `documents` table
+* Return document ID
+
+---
+
+## **5. Developer Documentation**
+
+Add new files:
+
+* `docs/TRANCHE_3_PLAN.md`
+* `docs/AUTH_FLOW.md`
+* `docs/JWKS_VERIFICATION.md`
+* `docs/API_ENDPOINTS.md`
+
+---
+
+# 🚀 READY-TO-RUN REPLIT AGENT PROMPT (TRANCHE 3)
+
+When you're ready, paste this exact prompt into Replit Agent:
+
+---
+
+## **📌 TRANCHE 3 — AUTHENTICATION LAYER IMPLEMENTATION**
+
+**Read before executing:**
+
+* Use existing `backend/` folder
+* Follow coding style from earlier tranches
+* Do NOT modify sensitive credentials
+* Use JWKS URL for verifying tokens
+* Use `DATABASE_URL` automatically from Replit
+
+---
+
+### **TASKS**
+
+### **1. Create Auth Folder Structure**
+
+Create:
+
+```
+backend/src/auth/
+ ├── jwks.ts
+ ├── verifyToken.ts
+ ├── authMiddleware.ts
+ ├── tokenTypes.ts
+ └── index.ts
+```
+
+---
+
+### **2. Implement Neon Auth JWKS verification**
+
+* Use `jose` package
+* Cache JWKS for performance
+* Support access + refresh tokens
+* Validate issuer, audience, expiration
+
+---
+
+### **3. Create Auth Middleware**
+
+`authMiddleware.ts` does:
+
+* Read `Authorization: Bearer <token>`
+* Verify using JWKS
+* Extract `user_id` from JWT
+* Attach `req.user`
+
+---
+
+### **4. Implement Auth Routes**
+
+Create:
+
+```
+backend/src/routes/auth.ts
+```
+
+Endpoints:
+
+### `POST /auth/refresh`
+
+* Validate refresh token
+* Request new tokens from Stack Auth
+* Return JSON with new tokens
+
+---
+
+### **5. Implement Profile Routes**
+
+```
+backend/src/routes/profile.ts
+```
+
+Endpoints:
+
+### `GET /profile`
+
+* Requires bearer token
+* Return user profile using Drizzle DB
+
+### `PUT /profile`
+
+* Validate body
+* Update user in DB
+* Return updated user
+
+---
+
+### **6. Implement Document Upload Routes**
+
+Create:
+
+```
+backend/src/routes/documents.ts
+```
+
+### `POST /documents/upload`
+
+* Accept:
+
+  * base64 file
+  * type
+* Create document row
+* Return document ID
+
+---
+
+### **7. Update Main Router**
+
+Update:
+
+`backend/src/index.ts` to register:
+
+* `/auth`
+* `/profile`
+* `/documents`
+
+---
+
+### **8. Install Dependencies**
+
+Install:
+
+```
+npm install jose zod multer
+npm install --save-dev @types/multer
+```
+
+---
+
+### **9. Create Documentation**
+
+Create:
+
+* `docs/TRANCHE_3_REPORT.md`
+* `docs/AUTH_FLOW.md`
+* `docs/JWKS_VERIFICATION.md`
+
+---
+
+### **10. Run full QA tests**
+
+* Test OAuth callback
+* Test `/profile`
+* Test `/documents/upload`
+* Verify all JWT validation
+* Fix errors if found

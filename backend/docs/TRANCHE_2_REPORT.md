@@ -370,6 +370,7 @@ The FiLot Backend now has a solid database foundation ready for authentication a
 | Migration files generated | 1 |
 | Documentation pages | 2 |
 | npm scripts added | 3 |
+
 | Errors encountered | 0 (1 minor LSP warning) |
 
 ---

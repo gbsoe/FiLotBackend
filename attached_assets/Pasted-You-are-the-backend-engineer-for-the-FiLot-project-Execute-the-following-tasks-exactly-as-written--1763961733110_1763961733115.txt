@@ -1,0 +1,147 @@
+You are the backend engineer for the FiLot project. Execute the following tasks exactly as written. 
+DO NOT modify or delete any Tranche 1 or Tranche 2 files unless explicitly instructed.
+
+====================================================
+TRANCHE 3 — AUTH + PROFILE BACKEND IMPLEMENTATION
+====================================================
+
+GOAL:
+Implement full authentication pipeline using Stack Auth + JWT verification + refresh tokens + user auto-creation + profile management API.
+
+Use the credentials already stored in Replit Secrets:
+- STACK_PROJECT_ID
+- STACK_SECRET_SERVER_KEY
+- STACK_PUBLISHABLE_CLIENT_KEY
+- DATABASE_URL
+- PGHOST, PGUSER, PGPASSWORD, PGDATABASE
+- SESSION_SECRET
+
+ABSOLUTELY NO credentials should be written into source code.
+
+===================================
+1. CREATE FOLDER STRUCTURE
+===================================
+
+Inside `backend/src/`, create:
+
+- `auth/`
+  - `stackAuth.ts`
+  - `jwt.ts`
+  - `middleware.ts`
+- `routes/`
+  - `authRoutes.ts`
+  - `profileRoutes.ts`
+- `types/`
+  - `User.ts`
+
+Also update `backend/src/server.ts` to load these routes.
+
+===================================
+2. IMPLEMENT stackAuth.ts
+===================================
+
+Create module to:
+- Verify access tokens using Stack Auth JWKS URL  
+  https://api.stack-auth.com/api/v1/projects/${STACK_PROJECT_ID}/.well-known/jwks.json
+- Provide `verifyToken(token)` → returns payload or throws error
+- Call Stack Auth `/auth/refresh`:
+  POST https://api.stack-auth.com/api/v1/token
+  Body: { refresh_token: <token>, grant_type: "refresh_token" }
+
+===================================
+3. IMPLEMENT jwt.ts
+===================================
+
+Utilities:
+- `getBearerToken(req)` → extracts Bearer token
+- Helper errors
+
+===================================
+4. IMPLEMENT middleware.ts
+===================================
+
+Create Express middleware:
+
+`authRequired(req, res, next)`  
+- Reads Bearer token  
+- Verifies via stackAuth.verifyToken  
+- Adds `req.user = { id, email, displayName }`
+
+===================================
+5. IMPLEMENT authRoutes.ts
+===================================
+
+Create Express routes:
+
+### POST /auth/verify
+- Verifies access token
+- If user does NOT exist in DB → auto-create user using email + provider id
+- Return:
+  {
+    user: { id, email, displayName, mobile, ktpUrl, npwpUrl }
+  }
+
+### POST /auth/refresh
+- Accepts `{ refreshToken }`
+- Calls Stack Auth token endpoint
+- Returns new tokens
+
+===================================
+6. IMPLEMENT profileRoutes.ts
+===================================
+
+### GET /profile
+Requires auth middleware  
+Return user from DB
+
+### PUT /profile
+Requires auth middleware  
+Allowed fields:
+- displayName
+- mobile
+- ktpUrl
+- npwpUrl
+
+Update DB, return updated user.
+
+===================================
+7. INTEGRATE ROUTES INTO SERVER
+===================================
+
+Modify `backend/src/server.ts`:
+- Import authRoutes & profileRoutes
+- Add routes under:
+
+`app.use("/auth", authRoutes);`  
+`app.use("/profile", profileRoutes);`
+
+===================================
+8. TESTING REQUIREMENTS
+===================================
+
+After implementation:
+- Confirm server builds without TypeScript errors
+- Confirm DB queries compile (drizzle)
+- Confirm `/auth/verify` works with a mock token string (just checking validator errors)
+- Confirm `/profile` rejects unauthenticated requests
+- Confirm `/profile` updates data correctly
+
+===================================
+9. DOCUMENTATION
+===================================
+
+Create file:
+`backend/docs/TRANCHE_3_REPORT.md`
+
+Contents must include:
+- Summary of all new modules
+- Auth flow diagram
+- Stack Auth JWT verification explanation
+- Route list (verify, refresh, GET/PUT profile)
+- Example responses
+- Security notes
+- Next steps (Tranche 4: document upload + storage)
+
+====================================================
+END OF TRANCHE 3 INSTRUCTIONS
+====================================================
