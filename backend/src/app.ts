@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import healthRoutes from './routes/health.routes';
+import authRoutes from './routes/authRoutes';
+import profileRoutes from './routes/profileRoutes';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { logger } from './utils/logger';
 
@@ -21,6 +23,8 @@ const createApp = (): Application => {
   }
 
   app.use('/', healthRoutes);
+  app.use('/auth', authRoutes);
+  app.use('/profile', profileRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
