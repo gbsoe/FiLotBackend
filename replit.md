@@ -42,15 +42,32 @@ Preferred communication style: Simple, everyday language.
 ```
 backend/
 ├── src/
+│   ├── auth/            # Authentication logic (NEW)
+│   │   ├── stackAuth.ts # Stack Auth JWT verification & token refresh
+│   │   ├── jwt.ts       # Bearer token extraction utilities
+│   │   └── middleware.ts # Auth middleware
 │   ├── config/          # Environment configuration
 │   ├── controllers/     # Request handlers
+│   ├── db/              # Database layer (NEW)
+│   │   ├── schema.ts    # Drizzle ORM schema definitions
+│   │   ├── index.ts     # Database connection
+│   │   ├── utils.ts     # Database utilities
+│   │   └── migrations/  # Database migration files
 │   ├── routes/          # Route definitions
+│   │   ├── health.routes.ts
+│   │   ├── authRoutes.ts    # Auth endpoints (NEW)
+│   │   └── profileRoutes.ts # Profile endpoints (NEW)
+│   ├── types/           # TypeScript type definitions (NEW)
+│   │   └── User.ts
 │   ├── middlewares/     # Express middleware
 │   ├── utils/           # Shared utilities
 │   ├── app.ts           # Express app factory
 │   └── index.ts         # Server entry point
 ├── docs/                # Documentation
-│   └── TRANCHE_1_DOCUMENTATION.md  # Tranche 1 complete technical documentation
+│   ├── TRANCHE_1_DOCUMENTATION.md
+│   ├── TRANCHE_2_REPORT.md
+│   ├── TRANCHE_3_REPORT.md  # Auth implementation details (NEW)
+│   └── DB_OVERVIEW.md
 ├── dist/                # Compiled JavaScript (build output)
 └── uploads/             # File upload directory (future use)
 ```
@@ -88,10 +105,13 @@ backend/
 - **morgan** (1.10.0): HTTP request logger
 - **dotenv** (16.3.1): Environment variable loader
 - **zod** (3.22.4): TypeScript-first schema validation
-- **jsonwebtoken** (9.0.2): JWT token creation/verification (ready for auth implementation)
-- **bcryptjs** (2.4.3): Password hashing library (ready for auth implementation)
+- **jsonwebtoken** (9.0.2): JWT token creation/verification
+- **jose** (latest): Modern JWT verification with JWKS support (Stack Auth integration)
+- **bcryptjs** (2.4.3): Password hashing library
 - **multer** (1.4.5-lts.1): File upload middleware (ready for document uploads)
 - **uuid** (9.0.1): Unique identifier generation
+- **drizzle-orm** (0.44.7): TypeScript ORM for SQL databases
+- **pg** (8.16.3): PostgreSQL client for Node.js
 
 ### Development Dependencies
 - **typescript** (5.3.3): TypeScript compiler
@@ -138,21 +158,42 @@ Based on frontend requirements, the backend will integrate with:
 
 **Documentation**: See `backend/docs/TRANCHE_1_DOCUMENTATION.md` for complete technical details
 
-### ⏳ Tranche 2 - Database Integration (PENDING)
-**Planned Features**:
-- PostgreSQL database connection (Neon/Replit)
-- User table schema and migrations
-- Database health monitoring
-- Connection pooling configuration
+### ✅ Tranche 2 - Database Integration (COMPLETED)
+**Date Completed**: November 23, 2025
 
-### ⏳ Tranche 3 - Authentication (PENDING)
-**Planned Features**:
-- User registration endpoint
-- Login endpoint with JWT token generation
-- Logout and token refresh functionality
-- Password reset flow with email integration
+**Achievements**:
+- PostgreSQL database provisioned and connected (Replit Database)
+- Drizzle ORM configured with TypeScript
+- Database schema created (users and documents tables)
+- Database migrations system set up
+- Connection pooling configured with pg library
 
-### ⏳ Tranche 4 - Profile & Documents (PENDING)
+**Documentation**: See `backend/docs/TRANCHE_2_REPORT.md` and `backend/docs/DB_OVERVIEW.md` for complete technical details
+
+### ✅ Tranche 3 - Authentication & Profile (COMPLETED)
+**Date Completed**: November 24, 2025
+
+**Achievements**:
+- Stack Auth integration with JWT verification via JWKS
+- Automatic user creation/linking on first authentication  
+- Token refresh mechanism via Stack Auth API
+- Authentication middleware protecting routes
+- Profile management endpoints (GET/PUT /profile)
+- Database schema updated for OAuth provider support (providerId, providerType)
+- Type-safe implementation with comprehensive error handling
+- Installed jose library for modern JWT verification
+
+**New Endpoints**:
+- `POST /auth/verify` - Verify Stack Auth access token and auto-create user
+- `POST /auth/refresh` - Refresh access token using refresh token
+- `GET /profile` - Retrieve authenticated user's profile (protected)
+- `PUT /profile` - Update user profile fields (protected)
+
+**Documentation**: See `backend/docs/TRANCHE_3_REPORT.md` for complete authentication flow, API documentation, and security details
+
+**Server Status**: Running on port 8080 with all authentication routes active
+
+### ⏳ Tranche 4 - Document Upload & Storage (PENDING)
 **Planned Features**:
 - User profile CRUD endpoints
 - KTP/NPWP document upload with OCR integration
