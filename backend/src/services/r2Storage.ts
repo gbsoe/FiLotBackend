@@ -2,6 +2,7 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 
 const client = new S3Client({
@@ -36,4 +37,24 @@ export const deleteFromR2 = async (key: string) => {
   });
 
   await client.send(command);
+};
+
+export const downloadFromR2 = async (key: string): Promise<Buffer> => {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+  });
+
+  const response = await client.send(command);
+  
+  if (!response.Body) {
+    throw new Error("No data received from R2");
+  }
+
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of response.Body as any) {
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks);
 };

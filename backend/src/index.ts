@@ -1,6 +1,7 @@
 import createApp from './app';
 import { config } from './config/env';
 import { logger } from './utils/logger';
+import { startProcessingLoop } from './ocr/processor';
 
 const startServer = (): void => {
   const app = createApp();
@@ -11,6 +12,8 @@ const startServer = (): void => {
     logger.info(`Environment: ${config.NODE_ENV}`);
     logger.info(`Port: ${port}`);
     logger.info(`Health check: http://0.0.0.0:${port}/health`);
+    
+    startProcessingLoop();
   });
 
   const gracefulShutdown = (signal: string): void => {

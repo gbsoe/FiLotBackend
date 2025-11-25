@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, uuid, pgEnum, jsonb } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -15,6 +15,13 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const documentStatusEnum = pgEnum("document_status", [
+  "uploaded",
+  "processing",
+  "completed",
+  "failed",
+]);
+
 export const documents = pgTable("documents", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id")
@@ -22,7 +29,7 @@ export const documents = pgTable("documents", {
     .references(() => users.id),
   type: varchar("type", { length: 50 }).notNull(),
   fileUrl: text("file_url"),
-  status: varchar("status", { length: 50 }).default("pending"),
-  resultJson: text("result_json"),
+  status: documentStatusEnum("status").default("uploaded"),
+  resultJson: jsonb("result_json"),
   createdAt: timestamp("created_at").defaultNow(),
 });
