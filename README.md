@@ -21,14 +21,24 @@ backend/
 │   ├── config/
 │   │   └── env.ts                 # Environment configuration
 │   ├── controllers/
-│   │   └── health.controller.ts   # Health check controller
+│   │   ├── health.controller.ts   # Health check controller
+│   │   └── documentsController.ts # Document upload controller ✅
 │   ├── db/                        # Database layer (Tranche 2)
 │   │   ├── schema.ts              # Drizzle ORM schema definitions
 │   │   ├── index.ts               # Database connection
 │   │   ├── utils.ts               # Database utility functions
 │   │   └── migrations/            # Generated migration files
 │   ├── routes/
-│   │   └── health.routes.ts       # Health check routes
+│   │   ├── health.routes.ts       # Health check routes
+│   │   ├── authRoutes.ts          # Authentication routes ✅
+│   │   ├── profileRoutes.ts       # Profile routes ✅
+│   │   └── documentsRoutes.ts     # Document upload routes ✅
+│   ├── services/
+│   │   └── r2Storage.ts           # Cloudflare R2 storage service ✅
+│   ├── auth/
+│   │   ├── jwt.ts                 # JWT utilities ✅
+│   │   ├── middleware.ts          # Auth middleware ✅
+│   │   └── stackAuth.ts           # Stack Auth integration ✅
 │   ├── middlewares/
 │   │   └── errorHandler.ts        # Global error handler & 404
 │   ├── utils/
@@ -37,7 +47,10 @@ backend/
 │   └── index.ts                   # Server entry point
 ├── docs/
 │   ├── TRANCHE_1_DOCUMENTATION.md # Phase 1 documentation
-│   └── DB_OVERVIEW.md             # Database documentation (Tranche 2)
+│   ├── TRANCHE_2_REPORT.md        # Phase 2 report
+│   ├── TRANCHE_3_REPORT.md        # Phase 3 report
+│   ├── DB_OVERVIEW.md             # Database documentation (Tranche 2)
+│   └── TRANCHE_4_DOCUMENTS.md     # Document upload documentation ✅
 ├── package.json
 ├── drizzle.config.ts              # Drizzle kit configuration (Tranche 2)
 ├── tsconfig.json                  # TypeScript strict config
@@ -59,9 +72,12 @@ backend/
 - `drizzle-kit` - Database migration toolkit ✅
 - `pg` - PostgreSQL client ✅
 - `zod` - Schema validation (ready for use)
-- `jsonwebtoken` - JWT tokens (ready for Tranche 3)
-- `bcryptjs` - Password hashing (ready for Tranche 3)
-- `multer` - File uploads (ready for Tranche 4)
+- `jsonwebtoken` - JWT tokens ✅
+- `bcryptjs` - Password hashing ✅
+- `multer` - File uploads ✅
+- `@aws-sdk/client-s3` - S3-compatible storage client ✅
+- `@aws-sdk/s3-request-presigner` - Signed URL generation ✅
+- `mime-types` - MIME type detection ✅
 - `uuid` - Unique ID generation
 
 **Development**:
@@ -184,7 +200,14 @@ Create a `.env` file in the `backend/` folder with these variables:
 PORT=8080
 JWT_SECRET=your-secret-key-here
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
-UPLOAD_DIR=./uploads
+
+# Cloudflare R2 Configuration (Tranche 4)
+CF_R2_ENDPOINT=https://[account-id].r2.cloudflarestorage.com
+CF_R2_ACCESS_KEY_ID=your_access_key_id
+CF_R2_SECRET_ACCESS_KEY=your_secret_access_key
+CF_R2_BUCKET_NAME=your_bucket_name
+CF_ACCOUNT_ID=your_cloudflare_account_id
+CF_R2_PUBLIC_BASE_URL=https://your-bucket.your-account-id.r2.dev  # Optional: Custom public URL
 ```
 
 **Note**: `DATABASE_URL` and other PostgreSQL credentials are automatically managed by Replit's built-in database.
@@ -209,6 +232,38 @@ Returns server health status.
 }
 ```
 
+### Document Upload ✅
+
+**POST** `/documents/upload`
+
+Upload a document (KTP or NPWP) with authentication required.
+
+**Headers**:
+- `Authorization: Bearer <JWT_TOKEN>`
+- `Content-Type: multipart/form-data`
+
+**Request Body**:
+- `type` (string): Document type - "KTP" or "NPWP"
+- `file` (binary): The document file
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "fileUrl": "https://[account-id].r2.cloudflarestorage.com/[bucket]/[user-id]/KTP_abc-123.jpg",
+  "document": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "userId": "123e4567-e89b-12d3-a456-426614174000",
+    "type": "KTP",
+    "fileUrl": "https://...",
+    "status": "uploaded",
+    "createdAt": "2025-11-25T10:30:00.000Z"
+  }
+}
+```
+
+**For detailed API documentation**, see `backend/docs/TRANCHE_4_DOCUMENTS.md`
+
 ---
 
 ## Database Schema (Tranche 2)
@@ -227,25 +282,24 @@ Stores uploaded documents and their processing status.
 
 ---
 
-## What Comes Next (Tranche 3: Authentication)
+## What Comes Next (Tranche 5: Document Processing & OCR)
 
 The next phase will add:
 
-1. **Authentication Endpoints**
-   - `POST /auth/register` - User registration
-   - `POST /auth/login` - User login (JWT tokens)
-   - `POST /auth/logout` - User logout
-   - `POST /auth/refresh` - Refresh JWT token
-   - `POST /auth/forgot-password` - Password reset request
+1. **OCR Integration**
+   - Extract text from uploaded KTP and NPWP documents
+   - Parse document fields automatically
+   - Validate extracted data
 
-2. **Profile Endpoints**
-   - `GET /profile` - Get user profile
-   - `PUT /profile` - Update user profile
-   - `PATCH /profile/password` - Change password
+2. **Document Processing Endpoints**
+   - `POST /documents/:id/process` - Trigger OCR processing
+   - `GET /documents/:id/result` - Get OCR results
+   - `GET /documents` - List user's documents
 
-3. **Document Upload Endpoints**
-   - `POST /documents/ktp` - Upload KTP (Indonesian ID)
-   - `POST /documents/npwp` - Upload NPWP (Tax ID)
+3. **AI Chat Integration**
+   - Financial assistant chatbot
+   - Context-aware responses based on user documents
+   - Multi-turn conversation support
 
 ---
 
@@ -267,9 +321,10 @@ The next phase will add:
 
 ✅ **Tranche 1 (Initialization)** - COMPLETE  
 ✅ **Tranche 2 (Database)** - COMPLETE  
-⏳ **Tranche 3 (Authentication)** - NOT STARTED  
-⏳ **Tranche 4 (Documents & OCR)** - NOT STARTED  
-⏳ **Tranche 5 (Chat & AI)** - NOT STARTED  
+✅ **Tranche 3 (Authentication)** - COMPLETE  
+✅ **Tranche 4 (Document Upload & R2 Storage)** - COMPLETE  
+⏳ **Tranche 5 (Document Processing & OCR)** - NOT STARTED  
+⏳ **Tranche 6 (Chat & AI)** - NOT STARTED  
 
 ---
 
