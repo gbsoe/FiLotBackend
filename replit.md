@@ -108,7 +108,10 @@ backend/
 - **jsonwebtoken** (9.0.2): JWT token creation/verification
 - **jose** (latest): Modern JWT verification with JWKS support (Stack Auth integration)
 - **bcryptjs** (2.4.3): Password hashing library
-- **multer** (1.4.5-lts.1): File upload middleware (ready for document uploads)
+- **multer** (1.4.5-lts.1): File upload middleware ✅
+- **@aws-sdk/client-s3**: S3-compatible storage client for Cloudflare R2 ✅
+- **@aws-sdk/s3-request-presigner**: Signed URL generation ✅
+- **mime-types**: MIME type detection and extension mapping ✅
 - **uuid** (9.0.1): Unique identifier generation
 - **drizzle-orm** (0.44.7): TypeScript ORM for SQL databases
 - **pg** (8.16.3): PostgreSQL client for Node.js
@@ -193,14 +196,45 @@ Based on frontend requirements, the backend will integrate with:
 
 **Server Status**: Running on port 8080 with all authentication routes active
 
-### ⏳ Tranche 4 - Document Upload & Storage (PENDING)
-**Planned Features**:
-- User profile CRUD endpoints
-- KTP/NPWP document upload with OCR integration
-- Integration with BULI2 OCR service
-- Document storage and retrieval
+### ✅ Tranche 4 - Document Upload & R2 Storage (COMPLETED)
+**Date Completed**: November 25, 2025
 
-### ⏳ Tranche 5 - Chat & AI (PENDING)
+**Achievements**:
+- Cloudflare R2 (S3-compatible) storage integration
+- Document upload endpoint with authentication (POST /documents/upload)
+- File validation (MIME type, extension, 10MB size limit)
+- Support for KTP and NPWP document types
+- Database integration with automatic status tracking
+- Comprehensive security considerations and documentation
+- Future-ready for OCR processing pipeline
+
+**New Endpoints**:
+- `POST /documents/upload` - Upload KTP/NPWP documents (authenticated, with file validation)
+
+**New Services**:
+- R2 Storage Service (`backend/src/services/r2Storage.ts`) - S3-compatible upload/delete operations
+- Documents Controller (`backend/src/controllers/documentsController.ts`) - Upload handling with validation
+
+**Environment Variables Added**:
+- `CF_R2_ENDPOINT` - Cloudflare R2 endpoint URL
+- `CF_R2_ACCESS_KEY_ID` - R2 access key ID
+- `CF_R2_SECRET_ACCESS_KEY` - R2 secret access key
+- `CF_R2_BUCKET_NAME` - R2 bucket name
+- `CF_ACCOUNT_ID` - Cloudflare account ID
+- `CF_R2_PUBLIC_BASE_URL` - Public URL base (optional, with fallback)
+
+**Documentation**: See `backend/docs/TRANCHE_4_DOCUMENTS.md` for complete API documentation, security considerations, and setup instructions
+
+**Server Status**: Running on port 8080 with document upload functionality active
+
+### ⏳ Tranche 5 - Document Processing & OCR (PENDING)
+**Planned Features**:
+- OCR integration for KTP/NPWP text extraction
+- Document processing endpoints
+- Data validation and parsing
+- Future enhancements: magic number validation, virus scanning
+
+### ⏳ Tranche 6 - Chat & AI (PENDING)
 **Planned Features**:
 - Chat message persistence
 - WebSocket/SSE for real-time responses
