@@ -1,0 +1,259 @@
+REPLIT AGENT — IMPLEMENT TRANCHE 5 (ASYNCHRONOUS OCR PIPELINE)
+
+Goal
+
+Implement a complete asynchronous OCR pipeline for FiLot backend, using Tesseract (already installed) to extract text from uploaded KTP / NPWP images.
+
+This tranche adds:
+
+* Background OCR processing
+* `/documents/:id/process` endpoint
+* `/documents/:id/result` endpoint
+* OCR result storage in database
+* Frontend-friendly status flow
+* DocumentParsingService
+* Parsing logic for KTP + NPWP
+* Queue simulation (no external queue)
+* Safety (timeouts, error handling)
+
+**Do NOT modify any existing upload logic from Tranche 4.**
+
+---
+
+# **📌 BACKEND REQUIREMENTS**
+
+## 1. **Create folder structure**
+
+Create:
+
+```
+backend/src/ocr/
+    ├── tesseractService.ts # performs Tesseract OCR
+    ├── ktpParser.ts # extracts KTP fields
+    ├── npwpParser.ts # extracts NPWP fields
+    ├── processor.ts # async processor & scheduler
+backend/src/controllers/
+    └── documentProcessController.ts
+backend/src/routes/
+    └── documentProcessRoutes.ts
+```
+
+---
+
+# **📌 2. DATABASE SCHEMA UPDATE (ADD STATUS + OCR RESULT)**
+
+Modify the `documents` table:
+
+* `status` ENUM → allow:
+
+  * `"uploaded"`
+  * `"processing"`
+  * `"completed"`
+  * `"failed"`
+
+* Add column:
+
+  ```sql
+  resultJson jsonb;
+  ```
+
+Generate migration:
+
+```
+npm run db:generate
+npm run db:push -- --force
+```
+
+---
+
+# **📌 3. OCR SERVICE (Tesseract)**
+
+Create `tesseractService.ts`:
+
+* Import `node-tesseract-ocr`
+* Support languages: `"ind"`, `"eng"`
+* Config:
+
+  ```ts
+  const config = {
+    lang: "ind+eng",
+    oem: 1,
+    psm: 3,
+  };
+  ```
+* Function:
+
+  ```ts
+  export async function runOCR(localFilePath: string): Promise<string>
+  ```
+* Return raw extracted text
+
+---
+
+# **📌 4. KTP & NPWP PARSERS**
+
+### `ktpParser.ts`
+
+Extract:
+
+* nik
+* name
+* birthPlace
+* birthDate
+* address
+* gender
+* religion
+* marital status
+
+Regex examples:
+
+```
+/NIK[\s:]*([0-9]{16})/
+/Nama[\s:]*([A-Z ]+)/
+/Tempat\/Tgl Lahir[\s:]*([A-Z ]+),\s*([0-9\-]+)/ etc
+```
+
+### `npwpParser.ts`
+
+Extract:
+
+* npwpNumber (XX.XXX.XXX.X-XXX.XXX)
+* name
+
+Regex:
+
+```
+/([0-9]{2}\.[0-9]{3}\.[0-9]{3}\.[0-9]\-[0-9]{3}\.[0-9]{3})/
+```
+
+---
+
+# **📌 5. DOCUMENT PROCESSOR (Async Queue Simulator)**
+
+Create `processor.ts`:
+
+### Add in-memory processing queue:
+
+```ts
+const processingQueue: string[] = [];
+```
+
+### Export function:
+
+```ts
+export function queueDocumentForProcessing(documentId: string)
+```
+
+### Background loop:
+
+* Every 3 seconds:
+
+  * take next document from queue
+  * set `status = "processing"`
+  * download file from R2 → save temporarily `/tmp/...`
+  * run OCR
+  * run parser depending on type
+  * update `resultJson`
+  * set `status = "completed"`
+  * delete temp file
+* On error:
+
+  * set status `"failed"`
+  * store `{ error: message }`
+
+Start processor automatically in `app.ts`:
+
+```ts
+import { startProcessingLoop } from "./ocr/processor";
+startProcessingLoop();
+```
+
+---
+
+# **📌 6. CONTROLLERS & ROUTES**
+
+## **A. `/documents/:id/process`**
+
+Create controller:
+
+```ts
+export async function processDocument(req, res)
+```
+
+Flow:
+
+* verify user owns document
+* call `queueDocumentForProcessing(document.id)`
+* set status = `"processing"`
+* return:
+
+```json
+{ "queued": true, "documentId": "..." }
+```
+
+---
+
+## **B. `/documents/:id/result`**
+
+Return:
+
+* status
+* resultJson (if completed)
+
+Example response:
+
+```json
+{
+  "status": "completed",
+  "result": {
+    "nik": "...",
+    "name": "...",
+    "birthDate": "..."
+  }
+}
+```
+
+If failed:
+
+```json
+{
+  "status": "failed",
+  "error": "Could not read document"
+}
+```
+
+---
+
+# **📌 7. FRONTEND SUPPORT (API CONTRACT)**
+
+Return exactly these statuses:
+
+| Status | Meaning |
+| ---------- | ------------------ |
+| uploaded | user uploaded file |
+| processing | OCR job is running |
+| completed | OCR data extracted |
+| failed | OCR failed |
+
+---
+
+# **📌 8. DO NOT CHANGE (IMPORTANT)**
+
+* Authentication flow (Tranche 3)
+* Upload endpoint (Tranche 4)
+* Cloudflare R2 storage logic
+* User profile behavior
+
+This tranche adds **only** the async OCR pipeline.
+
+---
+
+# **📌 9. After Completing the Work**
+
+Replit agent must output:
+
+* All created source code files
+* Register new routes in `app.ts`
+* Confirm tests passed
+* Show final endpoint list
+* Confirm queue loop running
