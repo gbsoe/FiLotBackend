@@ -1,0 +1,325 @@
+You are now tasked with performing a full backend audit of the FiLot project and generating a single comprehensive documentation file that combines all tranches (1–6) into a unified engineering specification.
+
+Your work must be exhaustive, accurate, and reflect the actual current codebase in this Replit backend workspace.
+
+✅ Your Main Task
+1. Perform a complete audit of the entire FiLot backend codebase
+Check every folder and file, including but not limited to:
+
+src/
+  controllers/
+  services/
+  routes/
+  middleware/
+  ocr/
+  db/
+  utils/
+  types/
+  index.ts
+  app.ts
+drizzle/
+node_modules/
+package.json
+.env (DO NOT OUTPUT CONTENT, only confirm usage)
+Verify:
+
+Project structure
+
+Database schema
+
+R2 integration
+
+Auth implementation (Stack Auth)
+
+Session/token management
+
+Document upload flow
+
+OCR processing
+
+Async queue (Tranche 5)
+
+Hybrid verification preparation (Tranche 6)
+
+Any inconsistencies or missing implementations
+
+✅ 2. Generate a unified Markdown file:
+FiLot_Backend_Audit.md
+Place the file at the root of the project.
+
+The documentation must include:
+
+SECTION 1 — Executive Overview
+Purpose of FiLot backend
+
+High-level architecture
+
+Backend→Frontend responsibilities
+
+Buli2 integration vision
+
+Hybrid Verification flow summary
+
+SECTION 2 — Full Architecture Diagram
+Provide ASCII or Mermaid diagrams for:
+
+Backend request lifecycle
+
+Authentication flow
+
+Document upload R2 flow
+
+OCR pipeline
+
+Hybrid verification
+
+Temporal-ready workflow (future)
+
+SECTION 3 — Server Structure
+Explain all folders:
+
+controllers
+
+routes
+
+services
+
+ocr
+
+db
+
+middleware
+
+utils
+
+Drizzle migrations
+
+Explain what each major file does.
+
+SECTION 4 — Environment Variables
+List all required env variables:
+
+⚠️ Do NOT expose actual secret values
+Only list variable names and purpose:
+
+Example:
+
+CF_R2_ACCESS_KEY_ID      – Cloudflare R2 access key
+DATABASE_URL             – Neon connection URL
+STACK_SECRET_SERVER_KEY  – Stack Auth server key
+Also include validation rules (e.g., required/optional).
+
+SECTION 5 — Database Schema (Neon)
+Extract from schema + migrations:
+
+users table
+
+documents table
+
+document_status ENUM
+
+relations
+
+constraints
+
+indexes
+
+Include:
+
+Full ER diagram
+
+Schema definitions
+
+Migration history summary
+
+SECTION 6 — API Endpoints (Comprehensive)
+For each route:
+
+Must document:
+Endpoint path
+
+Method
+
+Controller file
+
+Input schema
+
+Response schema
+
+Error cases
+
+Auth requirements
+
+Example JSON
+
+Example curl command
+
+Endpoints to include:
+
+Auth
+/auth/signup
+
+/auth/login
+
+/auth/me
+
+User
+/users/update
+
+/users/get
+
+Document Upload (Tranche 4)
+POST /documents/upload
+
+OCR Pipeline (Tranche 5)
+POST /documents/:id/process
+
+GET /documents/:id/result
+
+Hybrid Verification (Tranche 6)
+/verification/submit
+
+/verification/status/:id
+
+/verification/result/:id
+
+SECTION 7 — Cloudflare R2 Integration Audit
+Audit & document:
+
+Upload flow
+
+Download flow for OCR
+
+File naming structure
+
+Bucket-level security considerations
+
+Public URL strategy
+
+Signed URL considerations (future)
+
+SECTION 8 — OCR Pipeline Audit
+Include:
+
+Tesseract configuration
+
+Queue processor
+
+File temporary storage
+
+Error handling
+
+Parser implementations (KTP + NPWP)
+
+Retry logic
+
+Failure scenarios
+
+Performance considerations
+
+Include a full glossary of extraction fields.
+
+SECTION 9 — Hybrid Verification (Tranche 6)
+Document:
+
+Combined AI + human verification architecture
+
+Webhook explanation
+
+Queue handoff
+
+API structure
+
+Result synchronization with frontend
+
+Requirements for Buli2 integration
+
+Ability to scale to Temporal workflow
+
+SECTION 10 — Security Audit
+Check and document:
+
+JWT validation
+
+User → document ownership checks
+
+File validation
+
+Role/permission considerations
+
+R2 security model
+
+Sensitive data protection
+
+Request sanitization
+
+CORS rules
+
+Rate limiting (if any)
+
+Provide risk assessment + recommendations.
+
+SECTION 11 — Temporal Readiness (Future)
+Prepare FiLot backend for:
+
+Moving queues → Temporal
+
+Workflow orchestration
+
+Durable retries
+
+Event sourcing
+
+Human-in-the-loop workflow (KYC reviewer)
+
+Explain:
+
+What parts require refactor
+
+Which components are ready
+
+Which components must be redesigned
+
+SECTION 12 — Known Issues & Recommendations
+List:
+
+Missing features
+
+Bugs or code smells
+
+Overdue refactors
+
+Security gaps
+
+Scaling concerns
+
+Provide prioritized roadmap.
+
+SECTION 13 — Final Summary
+Include:
+
+What FiLot backend currently supports
+
+What is missing
+
+What is production-ready
+
+What must be done before going live
+
+REQUIREMENTS
+Do NOT reveal any secret values
+
+Write in professionally formatted Markdown
+
+Use clear headings, bolding, code blocks, diagrams
+
+Ensure documentation is 100% consistent with actual code
+
+Save output file as:
+
+FiLot_Backend_Audit.md
+After Creating the File — Additional Task
+When done, print:
+
+FiLot_Backend_Audit.md has been generated successfully.
+END OF PROMPT FOR REPLIT AGENT
