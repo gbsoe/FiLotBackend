@@ -1,0 +1,229 @@
+TRANCHE T6.B — BACKEND SECURITY & DOMAIN FINALIZATION PATCH (FOR REPLIT AGENT)
+
+*(FiLot Backend Workspace Only — Do NOT run in frontend repo)*
+
+## 🎯 **Objectives of This Patch**
+
+This tranche will implement the following:
+
+### 1️⃣ Add strict CORS with real frontend domain
+
+* Allow ONLY: `https://app.filot.id`
+* Block everything else
+* Include secure headers and allowed service-key header
+
+### 2️⃣ Add secure internal service-key validator
+
+Used for:
+
+* FiLot ↔ Buli2 hybrid verification route
+* Admin internal routes in the future
+
+### 3️⃣ Add presigned download URLs for R2 (prevent PII leakage)
+
+* Disable public access to KTP/NPWP files
+* Create **signed download endpoint**
+
+### 4️⃣ Add rate limiting
+
+* Prevent brute-force
+* Prevent abusive uploads/processing
+
+### 5️⃣ Add middlewares folder cleanup & refactor
+
+* `corsConfig.ts`
+* `verifyServiceKey.ts`
+* `rateLimiter.ts`
+* Update `app.ts` to use all
+* Do NOT break existing OCR or upload API
+
+---
+
+# 🚀 **REPLIT AGENT — EXECUTE THE FOLLOWING**
+
+## 🔧 **Step 1 — Create new env variables (do NOT hardcode)**
+
+Add to `.env`:
+
+```
+FILOT_FRONTEND_ORIGIN=https://app.filot.id
+SERVICE_INTERNAL_KEY=sk_live_REPLACE_WITH_RANDOM_64_CHAR
+R2_PRIVATE_URL_EXPIRY=3600
+```
+
+If `.env` already has similar keys, update only values.
+
+---
+
+## 🔧 **Step 2 — Install dependency for rate limiting**
+
+Run:
+
+```
+npm install express-rate-limit
+```
+
+---
+
+## 🔧 **Step 3 — Create new middleware folder and files**
+
+### ➤ Create: `src/middleware/corsConfig.ts`
+
+```ts
+import cors from "cors";
+
+export const corsConfig = cors({
+  origin: process.env.FILOT_FRONTEND_ORIGIN,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-service-key"],
+  credentials: true,
+});
+```
+
+---
+
+### ➤ Create: `src/middleware/verifyServiceKey.ts`
+
+```ts
+export function verifyServiceKey(req, res, next) {
+  const key = req.headers["x-service-key"];
+
+  if (!key || key !== process.env.SERVICE_INTERNAL_KEY) {
+    return res.status(403).json({ error: "Forbidden: Invalid service key" });
+  }
+
+  next();
+}
+```
+
+---
+
+### ➤ Create: `src/middleware/rateLimiter.ts`
+
+```ts
+import rateLimit from "express-rate-limit";
+
+export const rateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute per IP
+  message: { error: "Too many requests. Please try again later." },
+});
+```
+
+---
+
+## 🔧 **Step 4 — Update R2 storage service to support presigned URLs**
+
+Modify `src/services/r2Storage.ts`:
+
+Add:
+
+```ts
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+
+export async function generatePresignedUrl(key: string) {
+  const command = new GetObjectCommand({
+    Bucket: process.env.CF_R2_BUCKET_NAME,
+    Key: key,
+  });
+
+  return await getSignedUrl(s3Client, command, {
+    expiresIn: Number(process.env.R2_PRIVATE_URL_EXPIRY || 3600),
+  });
+}
+```
+
+---
+
+## 🔧 **Step 5 — Create secure endpoint for signed downloads**
+
+Add file: `src/routes/downloadRoutes.ts`
+
+```ts
+import { Router } from "express";
+import { generatePresignedUrl } from "../services/r2Storage";
+import { authRequired } from "../middleware/authMiddleware";
+
+const router = Router();
+
+router.get("/:id", authRequired, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const document = await req.db.query.documents.findFirst({
+      where: (d, { eq }) => eq(d.id, id),
+    });
+
+    if (!document) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    // Authorization: user can only access own document
+    if (document.userId !== req.user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const fileKey = document.fileUrl.replace(/^.*r2\.cloudflarestorage\.com\//, "");
+
+    const signedUrl = await generatePresignedUrl(fileKey);
+
+    res.json({ url: signedUrl });
+  } catch (err) {
+    console.error("Presigned URL error:", err);
+    res.status(500).json({ error: "Failed to generate secure URL" });
+  }
+});
+
+export default router;
+```
+
+---
+
+## 🔧 **Step 6 — Register all new middlewares & download route in `src/app.ts`**
+
+Modify `app.ts`:
+
+```ts
+import { corsConfig } from "./middleware/corsConfig";
+import { rateLimiter } from "./middleware/rateLimiter";
+
+app.use(corsConfig);
+app.use(rateLimiter);
+
+import downloadRoutes from "./routes/downloadRoutes";
+app.use("/documents/secure-download", downloadRoutes);
+```
+
+---
+
+# 📘 **EXPECTED OUTPUT FROM REPLIT AGENT**
+
+The agent should:
+
+✔ Create new middleware files
+✔ Update R2 storage service
+✔ Add secure download route
+✔ Update `app.ts` to apply strict CORS + rate limiting
+✔ Add env variable placeholders
+✔ Ensure existing OCR/upload endpoints keep working
+✔ NOT break the hybrid verification architecture
+✔ NOT touch frontend repository
+
+---
+
+# 📄 **DOCUMENTATION TO GENERATE (AGENT SHOULD WRITE FILE)**
+
+Create file:
+
+```
+/docs/T6B_BACKEND_SECURITY_PATCH.md
+```
+
+Contains:
+
+✔ CORS rules
+✔ Service-key protection rules
+✔ Signed URL flow
+✔ Rate limiter configuration
+✔ Security test instructions
