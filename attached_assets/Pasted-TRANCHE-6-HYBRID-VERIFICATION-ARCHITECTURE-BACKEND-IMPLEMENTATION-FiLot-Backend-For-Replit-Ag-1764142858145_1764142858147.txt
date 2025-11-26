@@ -1,0 +1,225 @@
+TRANCHE 6 — HYBRID VERIFICATION ARCHITECTURE (BACKEND IMPLEMENTATION)
+FiLot Backend — For Replit Agent Execution
+(Do NOT modify frontend files. Do NOT create frontend screens.)
+________________________________________
+🎯 OBJECTIVE
+Implement the Hybrid Verification Engine inside FiLot backend so that:
+🔹 OCR → Local AI Scoring → Hybrid Decision → Buli2 Escalation
+After OCR completes, system generates a confidence score
+If score above threshold → auto-verified
+If score below threshold → escalate to Buli2 Manual Review Queue
+System prepares Buli2-ready verification payloads
+Add compatibility layer for future Temporal Workflows (but no Temporal usage yet)
+________________________________________
+===============================
+📦 1. DATABASE CHANGES
+===============================
+Create a new migration:
+A. Add fields to documents table
+Add:
+ALTER TABLE documents
+  ADD COLUMN ai_score NUMERIC(5,2),
+  ADD COLUMN verification_status VARCHAR(50) DEFAULT 'pending', -- pending | auto_verified | needs_manual_review | manually_verified | rejected
+  ADD COLUMN buli2_ticket_id VARCHAR(255),
+  ADD COLUMN processed_at TIMESTAMP;
+
+________________________________________
+===============================
+🤖 2. AI SCORING LOGIC
+===============================
+Create a new file:
+backend/src/verification/aiScoring.ts
+Implement simple rule-based scoring (for now using heuristics):
+export function computeAIScore(type: 'KTP' | 'NPWP', parsed: any): number {
+  let score = 0;
+
+  // Basic completeness rules
+  if (!parsed) return 0;
+
+  const fields = Object.values(parsed).filter(Boolean);
+  const completeness = fields.length / Object.keys(parsed).length;
+  score += completeness * 60;
+
+  // Format rules
+  if (type === 'KTP') {
+    if (/^\d{16}$/.test(parsed.nik || '')) score += 20;
+    if (parsed.name?.length > 3) score += 10;
+  }
+
+  if (type === 'NPWP') {
+    if (/^\d{2}\.\d{3}\.\d{3}\.\d{1}-\d{3}\.\d{3}$/.test(parsed.npwpNumber || '')) {
+      score += 30;
+    }
+  }
+
+  // Clamp score
+  return Math.min(100, Math.round(score));
+}
+
+________________________________________
+===============================
+⚖️ 3. HYBRID DECISION ENGINE
+===============================
+Create:
+backend/src/verification/hybridEngine.ts
+Logic:
+import { computeAIScore } from './aiScoring';
+
+export function determineVerificationPath(type, parsedResult) {
+  const score = computeAIScore(type, parsedResult);
+
+  if (score >= 75) {
+    return { outcome: 'auto_verified', score };
+  }
+
+  return { outcome: 'needs_manual_review', score };
+}
+
+This integrates into your OCR pipeline.
+________________________________________
+===============================
+🔄 4. MODIFY OCR PROCESSOR
+===============================
+Modify file:
+backend/src/ocr/processor.ts
+After parsing:
+import { determineVerificationPath } from '../verification/hybridEngine';
+import { db } from '../db';
+
+const { outcome, score } = determineVerificationPath(doc.type, parsedData);
+
+await db.update(documents)
+  .set({
+    ai_score: score,
+    verification_status: outcome,
+    processed_at: new Date()
+  })
+  .where(eq(documents.id, documentId));
+
+________________________________________
+===============================
+📤 5. BULI2 ESCALATION PIPELINE
+===============================
+Create new directory:
+backend/src/buli2/
+Files:
+________________________________________
+A. buli2Client.ts
+Contains “future-proof” client for Buli2 API (currently mocked):
+export async function sendToBuli2(document, parsedData, aiScore) {
+  // TODO: replace with real URL later
+  console.log("Mock: Sending document to Buli2 queue");
+
+  return {
+    ticketId: `BULI2-${Date.now()}`,
+    status: 'queued'
+  };
+}
+
+________________________________________
+B. escalationService.ts
+import { sendToBuli2 } from './buli2Client';
+import { db } from '../db';
+import { documents } from '../db/schema';
+
+export async function escalateToBuli2(document, parsed, score) {
+  const result = await sendToBuli2(document, parsed, score);
+
+  await db.update(documents)
+    .set({
+      buli2_ticket_id: result.ticketId,
+      verification_status: 'needs_manual_review'
+    })
+    .where(eq(documents.id, document.id));
+
+  return result;
+}
+
+________________________________________
+===============================
+🚀 6. ADD NEW ENDPOINTS
+===============================
+File:
+
+backend/src/routes/verificationRoutes.ts
+Endpoints:
+________________________________________
+1. GET /verification/:documentId/status
+Return:
+{
+  "verificationStatus": "pending | auto_verified | needs_manual_review | manually_verified | rejected",
+  "aiScore": 82,
+  "buli2TicketId": "BULI2-1231231"
+}
+
+________________________________________
+2. POST /verification/:documentId/escalate
+Triggers manual escalation to Buli2 queue.
+________________________________________
+===============================
+🧩 7. HOOK INTO OCR PROCESSING
+===============================
+Inside processor.ts, after OCR → parsing:
+if (outcome === "needs_manual_review") {
+   await escalateToBuli2(doc, parsedData, score);
+}
+
+________________________________________
+===============================
+🔮 8. TEMPORAL-READY DESIGN (SCaffolding Only)
+===============================
+Create:
+backend/src/temporal/workflowsStub.ts
+This does NOT run Temporal yet. It simply prepares the structure:
+// Future: these will be connected to real Temporal workflows
+
+export const TemporalWorkflows = {
+  startVerificationWorkflow: async (documentId) => {
+    console.log("Temporal stub: starting workflow for", documentId);
+  },
+
+  notifyBuli2ManualReview: async (ticketId) => {
+    console.log("Temporal stub: notify Buli2", ticketId);
+  }
+};
+
+No external services, no workers.
+
+Just architecture compatibility.
+________________________________________
+===============================
+🔧 9. UPDATE APP ENTRYPOINT
+===============================
+In backend/src/app.ts:
+Add:
+import verificationRoutes from './routes/verificationRoutes';
+app.use('/verification', verificationRoutes);
+
+________________________________________
+===============================
+🧪 10. TEST FLOW CHECKLIST
+===============================
+After OCR completes:
+Auto Verified (Score ≥ 75)
+verification_status = "auto_verified"
+no escalation
+no Buli2 ticket
+Needs Manual Review (Score < 75)
+verification_status = "needs_manual_review"
+Buli2 ticket ID generated
+Data logged for future Buli2 integration
+No frontend modifications required.
+________________________________________
+===============================
+✅ WHAT REPLIT AGENT MUST DO
+===============================
+When running this prompt, the agent must:
+✔️ Create all new directories and files exactly as listed
+✔️ Add new DB migration
+✔️ Modify OCR processor
+✔️ Implement hybrid scoring engine
+✔️ Add verification routes
+✔️ Add escalation pipeline
+✔️ Add Temporal stubs
+✔️ Ensure NO frontend files are touched
+✔️ Ensure backend compiles after changes
