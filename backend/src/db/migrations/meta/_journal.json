@@ -29,6 +29,13 @@
       "when": 1764085466456,
       "tag": "0003_stale_hannibal_king",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1764143336039,
+      "tag": "0004_clear_talisman",
+      "breakpoints": true
     }
   ]
 }
