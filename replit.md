@@ -7,6 +7,15 @@ FiLot Backend is a Node.js/TypeScript REST API server supporting the FiLot mobil
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **November 26, 2025**: Implemented T6.B Backend Security & Domain Finalization Patch
+  - CORS now strictly allows only `https://app.filot.id` in production
+  - Added `corsConfig.ts` middleware with environment-aware origin validation
+  - Added `verifyServiceKey.ts` middleware for internal route protection
+  - R2 presigned URLs now use `R2_PRIVATE_URL_EXPIRY` environment variable (default: 3600s)
+  - New secure download endpoint: `GET /documents/secure-download/:id`
+  - Secure downloads require JWT authentication and document ownership validation
+  - Documentation added: `docs/T6B_BACKEND_SECURITY_PATCH.md`
+
 - **November 26, 2025**: Implemented T6.A Security Hardening Patch
   - R2 bucket now private with presigned URL system
   - Added rate limiting (60/min global, 10/min for sensitive routes)
@@ -122,6 +131,12 @@ The verification system combines AI-powered scoring with manual review capabilit
 - `POST /documents/upload` - Upload document (rate limited)
 - `GET /documents/:id/download` - Get presigned download URL
 
+**Secure Download Route** (`routes/downloadRoutes.ts`) - Added in T6.B:
+- `GET /documents/secure-download/:id` - Authenticated presigned download URL
+  - Requires JWT authentication
+  - Validates document ownership (users can only download their own documents)
+  - Returns time-limited presigned URL (configurable via R2_PRIVATE_URL_EXPIRY)
+
 **Verification Routes** (`routes/verificationRoutes.ts`):
 - `POST /verification/evaluate` - Evaluates processed documents (rate limited)
 - `GET /verification/status/:documentId` - Returns verification status with aiScore, buli2TicketId
@@ -179,10 +194,11 @@ The verification system combines AI-powered scoring with manual review capabilit
 
 ## Environment Variables
 
-### T6.A Security (Required)
+### T6.B Security (Required)
 ```
-FILOT_FRONTEND_ORIGIN=https://your-frontend-domain.com
-SERVICE_INTERNAL_KEY=your-secure-service-key-here
+FILOT_FRONTEND_ORIGIN=https://app.filot.id
+SERVICE_INTERNAL_KEY=your-secure-64-char-service-key-here
+R2_PRIVATE_URL_EXPIRY=3600
 ```
 
 ### R2 Storage (Required)
