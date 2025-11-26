@@ -1,0 +1,203 @@
+TRANCHE 6 PROMPT — HYBRID VERIFICATION (FiLot ↔ BULI2) — for Replit Agent
+
+**Goal:** implement AI scoring + forwarding flow from FiLot backend to BULI2 review queue; create BULI2 minimal review receiver & DB table; make code Temporal-ready (workflow + activity stubs); add minimal frontend status UI/polling; update docs.
+
+### 1) High-level behavior to implement
+
+* After OCR parsing (existing flow), compute a `score` and `decision`:
+
+  * `score`: 0–100 (higher = confident)
+  * `decision`: `auto_approve` | `auto_reject` | `needs_review`
+* Rules (simple baseline):
+
+  * If required fields present and regex-valid (NIK/NPWP) and OCR confidence > threshold => `auto_approve`.
+  * If obvious format errors or missing critical fields => `auto_reject`.
+  * Otherwise => `needs_review`.
+* If `needs_review`, POST a review task to BULI2 API (internal endpoint below); create local DB record in `manual_reviews`.
+* Frontend: show `Verification status` on Profile (states: `auto_approved`, `auto_rejected`, `pending_manual_review`) and poll BULI2 for final decision if pending.
+
+---
+
+### 2) Files to add / modify (backend `backend/src/`)
+
+#### A. FiLot backend
+
+1. **services/aiScoring.ts** — (new)
+
+   * Export `computeScoreAndDecision(parsedData: object, ocrText: string): { score: number, decision: string, reasons?: string[] }`
+   * Implement simple rules + small LLM/heuristic stub (no external LLM call — keep local).
+
+2. **routes/verificationRoutes.ts** — (new)
+
+   * `POST /verification/evaluate` — Accept `{ documentId }` or evaluate on-demand for testing; returns score/decision and updates `documents` and user profile if auto_approve/auto_reject.
+
+3. **services/forwardToBuli2.ts** — (new)
+
+   * `forwardReview(payload)` — POST to BULI2 `/internal/reviews` (configurable BULI2 url via env `BULI2_API_URL`).
+   * Handle retry-on-5xx transient errors with small backoff.
+
+4. **db/migrations** — (new migration)
+
+   * Create table `manual_reviews`:
+
+     ```sql
+     id uuid pk default gen_random_uuid()
+     document_id uuid not null references documents(id)
+     user_id uuid not null references users(id)
+     payload jsonb not null
+     status varchar(50) default 'pending' -- pending, approved, rejected
+     decision varchar(50) -- final decision from BULI2
+     confidence integer
+     created_at timestamptz default now()
+     updated_at timestamptz default now()
+     ```
+
+5. **controllers/documentController.ts** — (modify)
+
+   * After parsing result saved, call `aiScoring.computeScoreAndDecision(...)`.
+   * If `auto_approve` or `auto_reject`: update `documents.status` and `result_json`.
+   * If `needs_review`: create `manual_reviews` DB row and call `forwardToBuli2.forwardReview(...)`.
+
+6. **temporal/** — (new folder with stubs)
+
+   * `workflows/kycReviewWorkflow.ts` — export a workflow definition (stubbed, no runtime dependency). Describe inputs and sequence (activity: sendToReviewer, waitForDecision, finalize).
+   * `activities/kycActivities.ts` — stubs for activities (sendNotification, fetchExternalDecision).
+   * NOTE: do not install Temporal runtime. Keep code as compile-able TS modules and export types.
+
+7. **config** — add env placeholders to `.env.example` (do NOT add secrets):
+
+   * `BULI2_API_URL=https://buli2.example.internal`
+   * `BULI2_API_KEY=` (optional)
+   * `AI_SCORE_THRESHOLD_AUTO_APPROVE=85`
+   * `AI_SCORE_THRESHOLD_AUTO_REJECT=35`
+
+8. **logging** — add structured logs for decisions and forwarding (info level).
+
+#### B. BULI2 minimal receiver (separate repo/workspace or backend/buli2)
+
+1. **routes/internal/reviews.ts** — (new)
+
+   * `POST /internal/reviews` — Accept review payload, store to `manual_reviews` table (if shared DB) or own `buli2_manual_reviews`.
+   * Return `{ taskId, status: 'accepted' }`.
+
+2. **routes/internal/reviewDecisionSimulation.ts** — (new, helper)
+
+   * `POST /internal/reviews/:taskId/decision` — Accept `{ decision: 'approved'|'rejected', notes }` and update review record and (if FiLot callback URL provided) call back the FiLot endpoint to finalize.
+
+3. **DB** — create `buli2_manual_reviews` table if BULI2 uses separate DB.
+
+4. **Callback endpoint (FiLot)** — add `POST /internal/reviews/:id/callback` route in FiLot to accept BULI2 result (if BULI2 will push). If using polling instead, implement both sides.
+
+---
+
+### 3) Frontend changes (FiLot app) — minimal, non-breaking
+
+1. **screens/ProfileScreen.tsx** — modify:
+
+   * Add `verificationStatus` UI under documents: show `auto_approved`, `auto_rejected`, `pending_manual_review`.
+   * Add `Start review` button if document exists (calls `POST /verification/evaluate`).
+   * If `pending_manual_review`, start polling `GET /verification/status/:documentId` every 3s; show spinner and message.
+   * On final decision, update local profile state and show toast/haptic.
+2. **utils/api.ts** — add:
+
+   * `post('/verification/evaluate', { documentId })`
+   * `get('/verification/status/:id')`
+3. Keep existing upload flow untouched (no UI rework). Buttons should remain where they are; add a small status line only.
+
+---
+
+### 4) API contracts (for agent to implement)
+
+* `POST /verification/evaluate`
+
+  * Body: `{ documentId: string }`
+  * Response: `{ documentId, score, decision, reviewId? }`
+* `GET /verification/status/:documentId`
+
+  * Response: `{ documentId, status: 'auto_approved'|'auto_rejected'|'pending_manual_review'|'review_result', result?: {...} }`
+* `POST /internal/reviews` (BULI2)
+
+  * Body: `{ reviewId, documentId, userId, parsedData, ocrText, score }`
+  * Response: `{ taskId }`
+* `POST /internal/reviews/:taskId/decision` (BULI2 test endpoint)
+
+  * Body: `{ decision: 'approved'|'rejected', notes?: string }`
+  * Response: `{ success: true }` → this should trigger FiLot callback or update review table.
+
+---
+
+### 5) Temporal-readiness (what to include)
+
+* Put workflow definitions in `backend/src/temporal/` as TypeScript modules that export:
+
+  * names, inputs, and required activities
+  * unit-test friendly functions that simulate flow
+* Activities should be pure functions with typed input/outputs
+* Provide README `TEMPORAL.md` describing how to plug into Temporal Cloud later (config, task-queue names, activity host)
+* **Do not run or install Temporal now.** Keep as code stubs.
+
+---
+
+### 6) Testing & QA steps (agent must run)
+
+* Run DB migrations to add `manual_reviews`.
+* Start backend server.
+* Create a test user and upload a document (or use existing uploaded doc).
+* Call `POST /verification/evaluate` with that document ID.
+
+  * Verify returned `score`, `decision` and DB updates.
+  * If `needs_review`, ensure `manual_reviews` row created and `forwardToBuli2` attempted (log shows POST).
+* Simulate BULI2 decision:
+
+  * Call BULI2 `POST /internal/reviews/:taskId/decision` or call FiLot callback to finalize.
+  * Confirm `manual_reviews` status updated and document/user profile updated.
+* Frontend:
+
+  * On Profile page, upload doc, click `Start review` → see `pending_manual_review`, spinner and eventual final status.
+  * Ensure no UI break on other screens.
+
+---
+
+### 7) Documentation to create/update (markdown)
+
+* `backend/docs/TRANCHE_6.md` — include architecture, endpoints, env vars, DB migration SQL, test steps.
+* `frontend/docs/TRANCHE_6.md` — UI changes, new endpoints used, how polling works.
+* Update `README.md` top-level summary with Tranche 6 completed items.
+* Add `TEMPORAL.md` stub as noted.
+
+**Important:** DO NOT add any sensitive values to docs. Use placeholders for secrets.
+
+---
+
+### 8) Env vars to add (placeholders only)
+
+* `BULI2_API_URL=https://buli2.example.internal`
+* `AI_SCORE_THRESHOLD_AUTO_APPROVE=85`
+* `AI_SCORE_THRESHOLD_AUTO_REJECT=35`
+* `BULI2_CALLBACK_URL=https://filot.example.internal/internal/reviews/callback` (placeholder)
+
+Agent should **not** commit real secrets to repo. Use Replit Secrets for actual keys.
+
+---
+
+### 9) Acceptance checklist (agent must report back)
+
+* [ ] `aiScoring.computeScoreAndDecision` implemented + unit tests
+* [ ] `POST /verification/evaluate` implemented + documented
+* [ ] `GET /verification/status/:documentId` implemented
+* [ ] `manual_reviews` DB migration created & applied
+* [ ] `forwardToBuli2` implemented (configurable endpoint)
+* [ ] `backend/src/temporal` workflow + activities stubs added
+* [ ] BULI2 minimal receiver endpoints added (or instructions if separate workspace)
+* [ ] Frontend Profile: status UI + Start review button + polling implemented
+* [ ] Docs: `backend/docs/TRANCHE_6.md`, `frontend/docs/TRANCHE_6.md`, `TEMPORAL.md`
+* [ ] End-to-end test log (short) showing evaluate → needs_review → BULI2 decision → finalization
+
+---
+
+### Final notes to agent
+
+* Keep all UI/UX intact — add only small status text + button in Profile screen.
+* Use existing code styles, logger, and error handling patterns.
+* If BULI2 will be run in a separate workspace, create clear README instructions and a sample `curl` script to simulate review decisions.
+* Return a short report with files changed, migration SQL, and how to run the E2E test (commands).
