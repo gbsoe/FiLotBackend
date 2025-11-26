@@ -1,0 +1,118 @@
+You are working in the FiLot BACKEND workspace.  
+This is Tranche T6.A — Security Hardening Patch.  
+It is the first of three patches in the Tranche 6 Hybrid Verification Upgrade.
+
+Do NOT modify any frontend code.
+
+==============================
+OBJECTIVES (T6.A SCOPE ONLY)
+==============================
+Fix all P0 security issues:
+1. R2 bucket MUST become private, no more public URLs.
+2. Add presigned URL system for secure document downloads.
+3. Add express-rate-limit globally and for sensitive routes.
+4. Restrict CORS to the FiLot frontend only.
+5. Secure /internal/* routes with service API key.
+6. Add MIME + MAGIC-NUMBER + size validation for uploads.
+
+DO NOT implement retries, durable queue, encryption, or Temporal yet.
+Those belong to T6.B and T6.C.
+
+==============================
+IMPLEMENTATION DETAILS
+==============================
+
+[1] R2 STORAGE: PRIVATE + PRESIGNED URLs
+------------------------------------------------
+Modify r2Storage.ts:
+- Ensure the R2 client uses private bucket access (no public URL).
+- Change "uploadToR2()" to return only the R2 object key, not a public URL.
+- Add new function:
+    export async function generatePresignedUrl(key: string, expiresSeconds: number)
+- Use Cloudflare R2 signature v4 generation.
+- Create a new route:
+    GET /documents/:id/download
+  Behavior:
+  - Validate user/auth.
+  - Validate user owns this document.
+  - Generate a 5-minute presigned URL.
+  - Return { url: "<signed>" }
+
+Search entire backend codebase:
+- Replace usage of "public URL" with "key".
+- Ensure responses no longer expose public R2 links.
+
+[2] RATE LIMITING
+------------------------------------------------
+Install express-rate-limit.
+Add:
+- Global limiter: 60 requests/min per IP
+- Sensitive limiter (uploads, OCR initiate, hybrid routes): 10/min per IP
+
+Apply sensitive limiter to:
+- POST /documents/upload
+- POST /documents/:id/process
+- POST /hybrid/*
+- POST /internal/*
+
+[3] CORS HARDENING
+------------------------------------------------
+- Add CONST: process.env.FILOT_FRONTEND_ORIGIN
+- CORS allowlist:
+    * FILOT_FRONTEND_ORIGIN
+    * http://localhost:3000
+    * http://localhost:19000
+- Reject all other origins.
+- Allow only GET, POST, PUT, DELETE.
+
+[4] SERVICE KEY SECURITY FOR INTERNAL ROUTES
+------------------------------------------------
+For all /internal/* routes:
+- Require header: x-service-key
+- Compare to process.env.SERVICE_INTERNAL_KEY
+- If missing/invalid → return 401
+- Ensure logs do NOT print the key
+
+Add helper middleware:
+    checkInternalServiceKey()
+
+[5] FILE VALIDATION BEFORE UPLOAD
+------------------------------------------------
+Create new file: backend/src/utils/fileValidation.ts
+Implement:
+- Magic-number detection for jpg/jpeg/png/pdf
+- MIME validation fallback
+- Max size: 5MB
+- Reject files before upload to R2
+
+Integrate into upload route:
+- BEFORE uploading to R2
+- BEFORE creating DB row
+
+==============================
+OUTPUT REQUIREMENTS
+==============================
+At the end of execution, print:
+
+1. List of all modified files.
+2. Code patches (diff) for each file.
+3. New files created.
+4. Manual testing instructions:
+    - Upload test
+    - Download test (presigned)
+    - Rate-limit test
+    - CORS test
+    - Internal route security test
+    - Validation test (bad file rejection)
+
+==============================
+IMPORTANT RULES
+==============================
+- Do NOT begin T6.B or T6.C in this run.
+- Do NOT introduce Temporal or encryption yet.
+- Maintain full backwards compatibility with existing API response formats except removal of public URLs.
+- Preserve existing document upload metadata.
+
+==============================
+BEGIN T6.A IMPLEMENTATION NOW
+==============================
