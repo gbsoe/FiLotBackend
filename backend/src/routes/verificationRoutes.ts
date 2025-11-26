@@ -6,6 +6,7 @@ import { documents, manualReviews, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { computeScoreAndDecision } from "../services/aiScoring";
 import { forwardReview } from "../services/forwardToBuli2";
+import { escalateToBuli2 } from "../buli2/escalationService";
 import { logger } from "../utils/logger";
 
 const router = Router();
@@ -242,7 +243,8 @@ router.get("/status/:documentId", authRequired, async (req: Request, res: Respon
     if (
       document.verificationStatus === "pending_manual_review" ||
       document.verificationStatus === "manually_approved" ||
-      document.verificationStatus === "manually_rejected"
+      document.verificationStatus === "manually_rejected" ||
+      document.verificationStatus === "needs_manual_review"
     ) {
       const [review] = await db
         .select()
@@ -268,9 +270,11 @@ router.get("/status/:documentId", authRequired, async (req: Request, res: Respon
         : document.verificationStatus || "pending";
 
     return res.json({
+      verificationStatus: document.verificationStatus || "pending",
+      aiScore: document.aiScore,
+      buli2TicketId: document.buli2TicketId || null,
       documentId,
       status,
-      aiScore: document.aiScore,
       aiDecision: document.aiDecision,
       result,
     });
@@ -279,6 +283,56 @@ router.get("/status/:documentId", authRequired, async (req: Request, res: Respon
       error: error instanceof Error ? error.message : "Unknown error",
     });
     return res.status(500).json({ error: "Failed to get verification status" });
+  }
+});
+
+router.post("/:documentId/escalate", authRequired, async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { documentId } = req.params;
+    const userId = req.user.id;
+
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)));
+
+    if (!document) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    if (document.buli2TicketId) {
+      return res.json({
+        message: "Document already escalated to Buli2",
+        ticketId: document.buli2TicketId,
+        verificationStatus: document.verificationStatus,
+      });
+    }
+
+    const parsedData = typeof document.resultJson === "object" ? document.resultJson : {};
+    const score = document.aiScore || 0;
+
+    const escalationResult = await escalateToBuli2(document, parsedData, score);
+
+    logger.info("Document manually escalated to Buli2", {
+      documentId,
+      ticketId: escalationResult.ticketId,
+    });
+
+    return res.json({
+      message: "Document escalated to Buli2 for manual review",
+      ticketId: escalationResult.ticketId,
+      status: escalationResult.status,
+      verificationStatus: "needs_manual_review",
+    });
+  } catch (error) {
+    logger.error("Escalation error", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return res.status(500).json({ error: "Escalation failed" });
   }
 });
 

@@ -5,6 +5,8 @@ import { runOCR } from "./tesseractService";
 import { parseKTP } from "./ktpParser";
 import { parseNPWP } from "./npwpParser";
 import { downloadFromR2 } from "../services/r2Storage";
+import { determineVerificationPath } from "../verification/hybridEngine";
+import { escalateToBuli2 } from "../buli2/escalationService";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -67,14 +69,28 @@ async function processDocument(documentId: string) {
       throw new Error(`Unknown document type: ${document.type}`);
     }
 
+    const docType = document.type as 'KTP' | 'NPWP';
+    const { outcome, score } = determineVerificationPath(docType, parsedResult);
+
     await db
       .update(documents)
       .set({
         status: "completed",
+        aiScore: score,
+        verificationStatus: outcome,
         resultJson: parsedResult,
         ocrText: ocrText,
+        processedAt: new Date(),
       })
       .where(eq(documents.id, documentId));
+
+    console.log(`Document ${documentId} processed with score ${score}, outcome: ${outcome}`);
+
+    if (outcome === "needs_manual_review") {
+      const docWithId = { ...document, id: documentId };
+      await escalateToBuli2(docWithId, parsedResult, score);
+      console.log(`Document ${documentId} escalated to Buli2 for manual review`);
+    }
 
     console.log(`Document ${documentId} processed successfully`);
   } catch (error) {

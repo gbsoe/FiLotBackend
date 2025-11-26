@@ -12,6 +12,7 @@ export async function sendToBuli2(
     documentId: document.id,
     documentType: document.type,
     aiScore,
+    parsedDataKeys: Object.keys(parsedData || {}),
   });
 
   return {
