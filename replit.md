@@ -35,19 +35,44 @@ The system integrates Tesseract OCR for processing Indonesian (KTP/NPWP) and Eng
 ### Hybrid Verification System (Tranche 6)
 The verification system combines AI-powered scoring with manual review capabilities:
 
+**AI Scoring Engine** (`verification/aiScoring.ts`):
+- Simple rule-based `computeAIScore()` function for KTP/NPWP documents
+- Calculates completeness score + format validation bonus
+- Auto-verified threshold: score ≥75
+
+**Hybrid Decision Engine** (`verification/hybridEngine.ts`):
+- `determineVerificationPath()` determines outcome based on AI score
+- Outcomes: `auto_approved` (≥75) or `pending_manual_review` (<75)
+- Returns score, outcome, and decision for database persistence
+
 **AI Scoring Service** (`services/aiScoring.ts`):
 - Computes confidence scores (0-100) based on parsed data quality
 - Validates NIK (16-digit) and NPWP (15-digit) formats
 - Automated decisions: `auto_approve` (≥85), `auto_reject` (<35), or `needs_review`
+
+**BULI2 Client** (`buli2/buli2Client.ts`):
+- Mock `sendToBuli2()` function for future Buli2 API integration
+- Returns ticket ID and queue status
+
+**BULI2 Escalation Service** (`buli2/escalationService.ts`):
+- `escalateToBuli2()` handles document escalation workflow
+- Updates document with Buli2 ticket ID and verification status
+- Persists aiScore and aiDecision for tracking
 
 **BULI2 Integration** (`services/forwardToBuli2.ts`):
 - Forwards reviews requiring human verification to BULI2 queue
 - Includes retry logic with exponential backoff (3 attempts)
 - Supports callback-based decision notification
 
+**OCR Processor Integration**:
+- After OCR completion, automatically runs hybrid verification
+- Score ≥75 → `auto_approved`, no escalation
+- Score <75 → `pending_manual_review`, escalated to Buli2
+
 **Verification Routes** (`routes/verificationRoutes.ts`):
 - `POST /verification/evaluate` - Evaluates processed documents
-- `GET /verification/status/:documentId` - Returns verification status
+- `GET /verification/status/:documentId` - Returns verification status with aiScore, buli2TicketId
+- `POST /verification/:documentId/escalate` - Manually escalates document to Buli2
 
 **Internal BULI2 Routes** (`routes/internalRoutes.ts`):
 - `POST /internal/reviews` - Accepts review tasks
@@ -55,9 +80,18 @@ The verification system combines AI-powered scoring with manual review capabilit
 - `POST /internal/reviews/:taskId/decision` - Record manual decision
 - `POST /internal/reviews/:reviewId/callback` - Receive decision callbacks
 
-**Temporal Stubs** (`temporal/`):
+**Temporal Stubs** (`temporal/workflowsStub.ts`):
+- `startVerificationWorkflow()` - Stub for future Temporal workflow
+- `notifyBuli2ManualReview()` - Stub for Buli2 notification
 - KYC Review workflow definition for future Temporal Cloud integration
 - Activity stubs for notifications, status updates, and finalization
+
+**Documents Table Schema Updates**:
+- `ai_score` - Integer confidence score from AI scoring
+- `ai_decision` - Decision string (auto_approve, needs_review, auto_reject)
+- `verification_status` - Status (pending, auto_approved, pending_manual_review, etc.)
+- `buli2_ticket_id` - Buli2 queue ticket ID for escalated documents
+- `processed_at` - Timestamp when OCR processing completed
 
 ## External Dependencies
 
