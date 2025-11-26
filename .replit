@@ -18,18 +18,26 @@ args = "Backend Server"
 name = "Backend Server"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd backend && npm run dev"
 waitForPort = 8080
 
-[workflows.workflow.metadata]
-outputType = "console"
-
 [[ports]]
 localPort = 8080
-externalPort = 80
+externalPort = 8080
 
 [nix]
 channel = "stable-25_05"
 packages = ["tesseract"]
+
+[userenv]
+
+[userenv.shared]
+BULI2_API_URL = "http://localhost:8080"
+AI_SCORE_THRESHOLD_AUTO_APPROVE = "85"
+AI_SCORE_THRESHOLD_AUTO_REJECT = "35"
+BULI2_CALLBACK_URL = "http://localhost:8080/internal/reviews"

@@ -208,6 +208,13 @@ CF_R2_SECRET_ACCESS_KEY=your_secret_access_key
 CF_R2_BUCKET_NAME=your_bucket_name
 CF_ACCOUNT_ID=your_cloudflare_account_id
 CF_R2_PUBLIC_BASE_URL=https://your-bucket.your-account-id.r2.dev  # Optional: Custom public URL
+
+# BULI2 Integration (Tranche 6)
+BULI2_API_URL=https://buli2.example.internal
+BULI2_API_KEY=
+BULI2_CALLBACK_URL=https://filot.example.internal/internal/reviews
+AI_SCORE_THRESHOLD_AUTO_APPROVE=85
+AI_SCORE_THRESHOLD_AUTO_REJECT=35
 ```
 
 **Note**: `DATABASE_URL` and other PostgreSQL credentials are automatically managed by Replit's built-in database.
@@ -282,24 +289,65 @@ Stores uploaded documents and their processing status.
 
 ---
 
-## What Comes Next (Tranche 5: Document Processing & OCR)
+## Tranche 5: Document Processing & OCR - ✅ COMPLETE
 
-The next phase will add:
+This phase added:
 
-1. **OCR Integration**
-   - Extract text from uploaded KTP and NPWP documents
-   - Parse document fields automatically
-   - Validate extracted data
-
+1. **OCR Integration** - Tesseract-based OCR for KTP and NPWP documents
 2. **Document Processing Endpoints**
    - `POST /documents/:id/process` - Trigger OCR processing
    - `GET /documents/:id/result` - Get OCR results
-   - `GET /documents` - List user's documents
 
-3. **AI Chat Integration**
-   - Financial assistant chatbot
-   - Context-aware responses based on user documents
-   - Multi-turn conversation support
+---
+
+## Tranche 6: Hybrid Verification System - ✅ COMPLETE
+
+This phase implemented AI-powered document verification with manual review capabilities:
+
+### New Features
+
+1. **AI Scoring Service** (`backend/src/services/aiScoring.ts`)
+   - Computes confidence score (0-100) based on parsed data quality
+   - Makes automated decisions: `auto_approve`, `auto_reject`, or `needs_review`
+   - Validates NIK (16 digits) and NPWP (15 digits) formats
+
+2. **BULI2 Integration** (`backend/src/services/forwardToBuli2.ts`)
+   - Forwards reviews requiring human verification to BULI2 queue
+   - Includes retry logic with exponential backoff
+
+3. **Verification Endpoints**
+   - `POST /verification/evaluate` - Evaluate a processed document
+   - `GET /verification/status/:documentId` - Check verification status
+
+4. **Internal BULI2 Endpoints**
+   - `POST /internal/reviews` - Accept review tasks from FiLot
+   - `GET /internal/reviews/:taskId/status` - Check review status
+   - `POST /internal/reviews/:taskId/decision` - Record manual decision
+   - `POST /internal/reviews/:reviewId/callback` - Receive decision callbacks
+
+5. **Database Updates**
+   - New `manual_reviews` table for tracking review tasks
+   - Added `verification_status`, `ai_score`, `ai_decision`, `ocr_text` to documents
+   - Added `verification_status` to users
+
+6. **Temporal Workflow Stubs** (`backend/src/temporal/`)
+   - KYC Review workflow definition
+   - Activity stubs for future Temporal Cloud integration
+
+### Environment Variables
+
+```env
+BULI2_API_URL=https://buli2.example.internal
+BULI2_API_KEY=
+BULI2_CALLBACK_URL=https://filot.example.internal/internal/reviews
+AI_SCORE_THRESHOLD_AUTO_APPROVE=85
+AI_SCORE_THRESHOLD_AUTO_REJECT=35
+```
+
+### Documentation
+- `backend/docs/TRANCHE_6.md` - Full architecture and API documentation
+- `backend/docs/TEMPORAL.md` - Temporal integration guide
+- `frontend/docs/TRANCHE_6.md` - Frontend integration guide
 
 ---
 
@@ -323,8 +371,8 @@ The next phase will add:
 ✅ **Tranche 2 (Database)** - COMPLETE  
 ✅ **Tranche 3 (Authentication)** - COMPLETE  
 ✅ **Tranche 4 (Document Upload & R2 Storage)** - COMPLETE  
-⏳ **Tranche 5 (Document Processing & OCR)** - NOT STARTED  
-⏳ **Tranche 6 (Chat & AI)** - NOT STARTED  
+✅ **Tranche 5 (Document Processing & OCR)** - COMPLETE  
+✅ **Tranche 6 (Hybrid Verification FiLot ↔ BULI2)** - COMPLETE  
 
 ---
 

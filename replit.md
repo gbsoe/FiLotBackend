@@ -32,6 +32,33 @@ Multer is used for handling `multipart/form-data` file uploads, with configurabl
 ### Document Processing & OCR
 The system integrates Tesseract OCR for processing Indonesian (KTP/NPWP) and English documents. It features an asynchronous OCR pipeline with an in-memory queue, KTP and NPWP parsers using regex for data extraction, background processing, R2 file download for OCR, and status tracking (uploaded, processing, completed, failed) in the database.
 
+### Hybrid Verification System (Tranche 6)
+The verification system combines AI-powered scoring with manual review capabilities:
+
+**AI Scoring Service** (`services/aiScoring.ts`):
+- Computes confidence scores (0-100) based on parsed data quality
+- Validates NIK (16-digit) and NPWP (15-digit) formats
+- Automated decisions: `auto_approve` (≥85), `auto_reject` (<35), or `needs_review`
+
+**BULI2 Integration** (`services/forwardToBuli2.ts`):
+- Forwards reviews requiring human verification to BULI2 queue
+- Includes retry logic with exponential backoff (3 attempts)
+- Supports callback-based decision notification
+
+**Verification Routes** (`routes/verificationRoutes.ts`):
+- `POST /verification/evaluate` - Evaluates processed documents
+- `GET /verification/status/:documentId` - Returns verification status
+
+**Internal BULI2 Routes** (`routes/internalRoutes.ts`):
+- `POST /internal/reviews` - Accepts review tasks
+- `GET /internal/reviews/:taskId/status` - Check review status
+- `POST /internal/reviews/:taskId/decision` - Record manual decision
+- `POST /internal/reviews/:reviewId/callback` - Receive decision callbacks
+
+**Temporal Stubs** (`temporal/`):
+- KYC Review workflow definition for future Temporal Cloud integration
+- Activity stubs for notifications, status updates, and finalization
+
 ## External Dependencies
 
 ### Production Dependencies
@@ -54,9 +81,19 @@ The system integrates Tesseract OCR for processing Indonesian (KTP/NPWP) and Eng
 - **node-tesseract-ocr**: Node.js wrapper for Tesseract OCR.
 - **tesseract** (System package): Open source OCR engine.
 
-### Future External Service Integrations
-- **BULI2 OCR Service**: For Indonesian document processing.
+### Current & Future External Service Integrations
+- **BULI2 Review Service**: Hybrid verification system for document review (Integrated in Tranche 6).
+- **Temporal Cloud**: Durable workflow execution for KYC review process (Stubs ready).
 - **FiLot DeFi API**: For decentralized finance operations.
 - **Project Alpha API**: For additional financial services.
 - **Email Service**: For password resets and notifications.
 - **Session Store**: Potentially Redis for token management.
+
+## Environment Variables (Tranche 6)
+```
+BULI2_API_URL=http://localhost:8080
+BULI2_API_KEY=
+BULI2_CALLBACK_URL=http://localhost:8080/internal/reviews
+AI_SCORE_THRESHOLD_AUTO_APPROVE=85
+AI_SCORE_THRESHOLD_AUTO_REJECT=35
+```

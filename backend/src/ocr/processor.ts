@@ -72,6 +72,7 @@ async function processDocument(documentId: string) {
       .set({
         status: "completed",
         resultJson: parsedResult,
+        ocrText: ocrText,
       })
       .where(eq(documents.id, documentId));
 

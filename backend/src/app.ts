@@ -7,6 +7,8 @@ import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
 import documentsRoutes from './routes/documentsRoutes';
 import documentProcessRoutes from './routes/documentProcessRoutes';
+import verificationRoutes from './routes/verificationRoutes';
+import internalRoutes from './routes/internalRoutes';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { logger } from './utils/logger';
 
@@ -29,6 +31,8 @@ const createApp = (): Application => {
   app.use('/profile', profileRoutes);
   app.use('/documents', documentsRoutes);
   app.use('/documents', documentProcessRoutes);
+  app.use('/verification', verificationRoutes);
+  app.use('/internal', internalRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
