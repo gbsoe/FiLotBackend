@@ -8,7 +8,7 @@ import { logger } from "../utils/logger";
 
 const router = Router();
 
-router.get("/:id", authRequired, async (req: Request, res: Response) => {
+router.get("/:id", authRequired, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -18,7 +18,8 @@ router.get("/:id", authRequired, async (req: Request, res: Response) => {
 
     if (!document) {
       logger.warn("Secure download: Document not found", { documentId: id });
-      return res.status(404).json({ error: "Document not found" });
+      res.status(404).json({ error: "Document not found" });
+      return;
     }
 
     if (document.userId !== req.user!.id) {
@@ -27,12 +28,14 @@ router.get("/:id", authRequired, async (req: Request, res: Response) => {
         documentOwnerId: document.userId,
         requesterId: req.user!.id,
       });
-      return res.status(403).json({ error: "Forbidden" });
+      res.status(403).json({ error: "Forbidden" });
+      return;
     }
 
     if (!document.fileUrl) {
       logger.warn("Secure download: Document has no file URL", { documentId: id });
-      return res.status(404).json({ error: "Document file not available" });
+      res.status(404).json({ error: "Document file not available" });
+      return;
     }
 
     const fileKey = extractKeyFromUrl(document.fileUrl);
