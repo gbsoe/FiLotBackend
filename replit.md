@@ -6,19 +6,63 @@ FiLot Backend is a Node.js/TypeScript REST API server supporting the FiLot mobil
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+- **November 26, 2025**: Implemented T6.A Security Hardening Patch
+  - R2 bucket now private with presigned URL system
+  - Added rate limiting (60/min global, 10/min for sensitive routes)
+  - CORS restricted to FiLot frontend only
+  - Internal routes secured with service API key
+  - File validation with magic-number, MIME, and size checks
+
 ## System Architecture
 
 ### Core Framework & Runtime
 The backend is built on Node.js with TypeScript (strict mode) and Express.js 4.x. It uses CommonJS modules and targets ES2020. Development uses hot-reloading with `ts-node-dev`, compiling to JavaScript for production. This provides a robust, type-safe, and performant foundation.
 
-### Security Architecture
-Security is paramount, utilizing Helmet.js for secure HTTP headers, configured CORS for mobile frontend interaction, and JWT-based authentication. Password hashing is handled by bcryptjs, and input validation is enforced using Zod schema validation.
+### Security Architecture (T6.A Enhanced)
+Security is paramount, utilizing:
+- **Helmet.js** for secure HTTP headers
+- **CORS hardening** - restricted to FiLot frontend origins only
+- **JWT-based authentication** for user routes
+- **Service key authentication** for internal routes (x-service-key header)
+- **Rate limiting** - global (60/min) and sensitive routes (10/min)
+- **File validation** - magic-number detection, MIME validation, 5MB size limit
+- **Presigned URLs** - R2 bucket is now private, documents accessed via time-limited signed URLs
+- Password hashing handled by bcryptjs
+- Input validation enforced using Zod schema validation
+
+### Rate Limiting
+- **Global limiter**: 60 requests/minute per IP (applied after auth routes)
+- **Sensitive limiter**: 10 requests/minute per IP
+  - POST /documents/upload
+  - POST /documents/:id/process
+  - POST /verification/evaluate
+  - POST /verification/:documentId/escalate
+  - All /internal/* routes
 
 ### Error Handling & Logging
 A centralized global error handler, a dedicated 404 handler, and a custom logger utility ensure consistent error responses and effective debugging. Morgan middleware is used for HTTP request logging, and process-level handlers manage graceful shutdowns and log unhandled exceptions.
 
 ### Project Structure
-The project follows a layered architecture, organizing code into `auth`, `config`, `controllers`, `db`, `routes`, `types`, `middlewares`, and `utils` directories within `src/`. This structure promotes separation of concerns, maintainability, and scalability.
+The project follows a layered architecture:
+```
+backend/src/
+├── auth/           # JWT & authentication middleware
+├── buli2/          # BULI2 client & escalation service
+├── config/         # Environment configuration
+├── controllers/    # Route handlers
+├── db/             # Drizzle ORM schema & migrations
+├── middlewares/    # Error handling, rate limiting, service key auth
+├── ocr/            # Tesseract OCR processing
+├── routes/         # Express route definitions
+├── services/       # R2 storage, AI scoring, BULI2 forwarding
+├── temporal/       # Temporal workflow stubs
+├── types/          # TypeScript type definitions
+├── utils/          # Logger, file validation
+├── verification/   # Hybrid verification engine
+├── app.ts          # Express app setup
+└── index.ts        # Server entry point
+```
 
 ### Configuration Management
 Environment variables are loaded via `dotenv` from `.env` files, with type-safe configuration managed by `config/env.ts`. Default values are provided for development, and warnings are issued for unset required variables, ensuring robust and flexible deployment across environments.
@@ -26,8 +70,13 @@ Environment variables are loaded via `dotenv` from `.env` files, with type-safe 
 ### Code Quality & Standards
 Code quality is maintained through automated tools: ESLint for TypeScript-aware linting, Prettier for consistent code formatting, and strict TypeScript compiler flags to enforce type safety and catch errors early.
 
-### File Upload Handling
-Multer is used for handling `multipart/form-data` file uploads, with configurable storage via the `UPLOAD_DIR` environment variable. This allows for flexible storage solutions, including local filesystem initially and cloud storage like S3 later.
+### File Upload Handling (T6.A Enhanced)
+- Multer for `multipart/form-data` file uploads
+- **5MB maximum file size**
+- **Supported types**: JPEG, PNG, PDF only
+- **Validation before upload**: Magic-number detection, MIME validation
+- Files stored in private R2 bucket (key-only, no public URLs)
+- Download via presigned URLs (5-minute expiry)
 
 ### Document Processing & OCR
 The system integrates Tesseract OCR for processing Indonesian (KTP/NPWP) and English documents. It features an asynchronous OCR pipeline with an in-memory queue, KTP and NPWP parsers using regex for data extraction, background processing, R2 file download for OCR, and status tracking (uploaded, processing, completed, failed) in the database.
@@ -69,12 +118,16 @@ The verification system combines AI-powered scoring with manual review capabilit
 - Score ≥75 → `auto_approved`, no escalation
 - Score <75 → `pending_manual_review`, escalated to Buli2
 
-**Verification Routes** (`routes/verificationRoutes.ts`):
-- `POST /verification/evaluate` - Evaluates processed documents
-- `GET /verification/status/:documentId` - Returns verification status with aiScore, buli2TicketId
-- `POST /verification/:documentId/escalate` - Manually escalates document to Buli2
+**Document Routes** (`routes/documentsRoutes.ts`):
+- `POST /documents/upload` - Upload document (rate limited)
+- `GET /documents/:id/download` - Get presigned download URL
 
-**Internal BULI2 Routes** (`routes/internalRoutes.ts`):
+**Verification Routes** (`routes/verificationRoutes.ts`):
+- `POST /verification/evaluate` - Evaluates processed documents (rate limited)
+- `GET /verification/status/:documentId` - Returns verification status with aiScore, buli2TicketId
+- `POST /verification/:documentId/escalate` - Manually escalates document to Buli2 (rate limited)
+
+**Internal BULI2 Routes** (`routes/internalRoutes.ts`) - Protected with service key:
 - `POST /internal/reviews` - Accepts review tasks
 - `GET /internal/reviews/:taskId/status` - Check review status
 - `POST /internal/reviews/:taskId/decision` - Record manual decision
@@ -97,6 +150,7 @@ The verification system combines AI-powered scoring with manual review capabilit
 
 ### Production Dependencies
 - **express**: Web application framework.
+- **express-rate-limit**: Rate limiting middleware (T6.A).
 - **cors**: Cross-origin resource sharing middleware.
 - **helmet**: Security headers middleware.
 - **morgan**: HTTP request logger.
@@ -123,11 +177,35 @@ The verification system combines AI-powered scoring with manual review capabilit
 - **Email Service**: For password resets and notifications.
 - **Session Store**: Potentially Redis for token management.
 
-## Environment Variables (Tranche 6)
+## Environment Variables
+
+### T6.A Security (Required)
+```
+FILOT_FRONTEND_ORIGIN=https://your-frontend-domain.com
+SERVICE_INTERNAL_KEY=your-secure-service-key-here
+```
+
+### R2 Storage (Required)
+```
+CF_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+CF_R2_ACCESS_KEY_ID=your-access-key
+CF_R2_SECRET_ACCESS_KEY=your-secret-key
+CF_R2_BUCKET_NAME=your-bucket-name
+```
+
+### BULI2 Integration
 ```
 BULI2_API_URL=http://localhost:8080
 BULI2_API_KEY=
 BULI2_CALLBACK_URL=http://localhost:8080/internal/reviews
 AI_SCORE_THRESHOLD_AUTO_APPROVE=85
 AI_SCORE_THRESHOLD_AUTO_REJECT=35
+```
+
+## Running the Backend
+```bash
+cd backend
+npm run dev    # Development with hot-reload
+npm run build  # Production build
+npm start      # Start production server
 ```
