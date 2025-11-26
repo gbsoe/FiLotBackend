@@ -49,9 +49,11 @@ export const documents = pgTable("documents", {
   verificationStatus: varchar("verification_status", { length: 50 }).default("pending"),
   aiScore: integer("ai_score"),
   aiDecision: varchar("ai_decision", { length: 50 }),
+  buli2TicketId: varchar("buli2_ticket_id", { length: 255 }),
   resultJson: jsonb("result_json"),
   ocrText: text("ocr_text"),
   createdAt: timestamp("created_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
 });
 
 export const manualReviews = pgTable("manual_reviews", {
