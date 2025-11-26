@@ -4,9 +4,10 @@ import { eq } from "drizzle-orm";
 import { runOCR } from "./tesseractService";
 import { parseKTP } from "./ktpParser";
 import { parseNPWP } from "./npwpParser";
-import { downloadFromR2 } from "../services/r2Storage";
+import { downloadFromR2, extractKeyFromUrl } from "../services/r2Storage";
 import { determineVerificationPath } from "../verification/hybridEngine";
 import { escalateToBuli2 } from "../buli2/escalationService";
+import { logger } from "../utils/logger";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -16,7 +17,7 @@ let isProcessing = false;
 export function queueDocumentForProcessing(documentId: string) {
   if (!processingQueue.includes(documentId)) {
     processingQueue.push(documentId);
-    console.log(`Document ${documentId} queued for processing`);
+    logger.info("Document queued for processing", { documentId });
   }
 }
 
@@ -30,7 +31,7 @@ async function processDocument(documentId: string) {
       .where(eq(documents.id, documentId));
 
     if (!document) {
-      console.error(`Document ${documentId} not found`);
+      logger.error("Document not found for processing", { documentId });
       return;
     }
 
@@ -39,13 +40,13 @@ async function processDocument(documentId: string) {
       .set({ status: "processing" })
       .where(eq(documents.id, documentId));
 
-    console.log(`Processing document ${documentId} of type ${document.type}`);
+    logger.info("Processing document", { documentId, type: document.type });
 
     if (!document.fileUrl) {
       throw new Error("Document has no file URL");
     }
 
-    const fileKey = document.fileUrl.split("/").slice(-2).join("/");
+    const fileKey = extractKeyFromUrl(document.fileUrl);
     const fileBuffer = await downloadFromR2(fileKey);
 
     const tmpDir = "/tmp";
@@ -58,7 +59,7 @@ async function processDocument(documentId: string) {
     fs.writeFileSync(tempFilePath, fileBuffer);
 
     const ocrText = await runOCR(tempFilePath);
-    console.log(`OCR completed for document ${documentId}`);
+    logger.info("OCR completed", { documentId });
 
     let parsedResult: any;
     if (document.type === "KTP") {
@@ -85,17 +86,20 @@ async function processDocument(documentId: string) {
       })
       .where(eq(documents.id, documentId));
 
-    console.log(`Document ${documentId} processed with score ${score}, outcome: ${outcome}`);
+    logger.info("Document processed", { documentId, score, outcome });
 
     if (outcome === "pending_manual_review") {
       const docWithId = { ...document, id: documentId };
       await escalateToBuli2(docWithId, parsedResult, score);
-      console.log(`Document ${documentId} escalated to Buli2 for manual review`);
+      logger.info("Document escalated to Buli2 for manual review", { documentId });
     }
 
-    console.log(`Document ${documentId} processed successfully`);
+    logger.info("Document processing completed successfully", { documentId });
   } catch (error) {
-    console.error(`Error processing document ${documentId}:`, error);
+    logger.error("Error processing document", {
+      documentId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
 
     await db
       .update(documents)
@@ -125,7 +129,9 @@ async function processNextInQueue() {
     try {
       await processDocument(documentId);
     } catch (error) {
-      console.error("Unexpected error in processNextInQueue:", error);
+      logger.error("Unexpected error in processing queue", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
 
@@ -133,7 +139,7 @@ async function processNextInQueue() {
 }
 
 export function startProcessingLoop() {
-  console.log("Starting OCR processing loop...");
+  logger.info("Starting OCR processing loop");
   setInterval(async () => {
     await processNextInQueue();
   }, 3000);

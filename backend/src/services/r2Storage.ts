@@ -4,6 +4,8 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { logger } from "../utils/logger";
 
 const client = new S3Client({
   region: "auto",
@@ -15,9 +17,8 @@ const client = new S3Client({
 });
 
 const BUCKET = process.env.CF_R2_BUCKET_NAME!;
-const PUBLIC_BASE_URL = process.env.CF_R2_PUBLIC_BASE_URL || `https://${process.env.CF_R2_BUCKET_NAME}.${process.env.CF_ACCOUNT_ID}.r2.dev`;
 
-export const uploadToR2 = async (key: string, buffer: Buffer, contentType: string) => {
+export const uploadToR2 = async (key: string, buffer: Buffer, contentType: string): Promise<string> => {
   const command = new PutObjectCommand({
     Bucket: BUCKET,
     Key: key,
@@ -27,16 +28,20 @@ export const uploadToR2 = async (key: string, buffer: Buffer, contentType: strin
 
   await client.send(command);
 
-  return `${PUBLIC_BASE_URL}/${key}`;
+  logger.info("File uploaded to R2", { key, contentType, size: buffer.length });
+
+  return key;
 };
 
-export const deleteFromR2 = async (key: string) => {
+export const deleteFromR2 = async (key: string): Promise<void> => {
   const command = new DeleteObjectCommand({
     Bucket: BUCKET,
     Key: key,
   });
 
   await client.send(command);
+  
+  logger.info("File deleted from R2", { key });
 };
 
 export const downloadFromR2 = async (key: string): Promise<Buffer> => {
@@ -57,4 +62,48 @@ export const downloadFromR2 = async (key: string): Promise<Buffer> => {
   }
 
   return Buffer.concat(chunks);
+};
+
+export const generatePresignedUrl = async (
+  key: string,
+  expiresInSeconds: number = 300
+): Promise<string> => {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+  });
+
+  const signedUrl = await getSignedUrl(client, command, {
+    expiresIn: expiresInSeconds,
+  });
+
+  logger.info("Presigned URL generated", { key, expiresInSeconds });
+
+  return signedUrl;
+};
+
+export const extractKeyFromUrl = (fileUrl: string): string => {
+  if (!fileUrl) {
+    throw new Error("File URL is empty or undefined");
+  }
+
+  if (fileUrl.startsWith("http")) {
+    try {
+      const url = new URL(fileUrl);
+      const pathname = url.pathname;
+      const key = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+      return key;
+    } catch (error) {
+      const urlParts = fileUrl.split("/");
+      const bucketIndex = urlParts.findIndex(part => 
+        part.includes(".r2.") || part.includes("r2.dev")
+      );
+      if (bucketIndex >= 0 && bucketIndex + 1 < urlParts.length) {
+        return urlParts.slice(bucketIndex + 1).join("/");
+      }
+      return urlParts.slice(-2).join("/");
+    }
+  }
+  
+  return fileUrl;
 };

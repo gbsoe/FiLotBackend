@@ -2,8 +2,11 @@ import createApp from './app';
 import { config } from './config/env';
 import { logger } from './utils/logger';
 import { startProcessingLoop } from './ocr/processor';
+import { validateServiceKeyAtStartup } from './middlewares/serviceKeyAuth';
 
 const startServer = (): void => {
+  validateServiceKeyAtStartup();
+  
   const app = createApp();
   const port = config.PORT;
 

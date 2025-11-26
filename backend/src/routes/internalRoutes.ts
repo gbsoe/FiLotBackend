@@ -4,8 +4,13 @@ import { db } from "../db";
 import { manualReviews, documents, users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "../utils/logger";
+import { checkInternalServiceKey } from "../middlewares/serviceKeyAuth";
+import { sensitiveRateLimiter } from "../middlewares/rateLimiter";
 
 const router = Router();
+
+router.use(checkInternalServiceKey);
+router.use(sensitiveRateLimiter);
 
 router.post("/reviews", async (req: Request, res: Response) => {
   try {
@@ -215,7 +220,6 @@ router.post(
           });
           logger.info("BULI2: Callback sent to FiLot", {
             taskId,
-            callbackUrl: payload.callbackUrl,
           });
         } catch (callbackError) {
           logger.warn("BULI2: Failed to send callback", {

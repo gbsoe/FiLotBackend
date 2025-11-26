@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Request, Response } from "express";
 import { authRequired } from "../auth/middleware";
+import { sensitiveRateLimiter } from "../middlewares/rateLimiter";
 import { db } from "../db";
 import { documents, manualReviews, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
@@ -13,7 +14,7 @@ const router = Router();
 
 const BULI2_CALLBACK_URL = process.env.BULI2_CALLBACK_URL || "";
 
-router.post("/evaluate", authRequired, async (req: Request, res: Response) => {
+router.post("/evaluate", authRequired, sensitiveRateLimiter, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -286,7 +287,7 @@ router.get("/status/:documentId", authRequired, async (req: Request, res: Respon
   }
 });
 
-router.post("/:documentId/escalate", authRequired, async (req: Request, res: Response) => {
+router.post("/:documentId/escalate", authRequired, sensitiveRateLimiter, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized" });
