@@ -326,7 +326,7 @@ router.post("/:documentId/escalate", authRequired, async (req: Request, res: Res
       message: "Document escalated to Buli2 for manual review",
       ticketId: escalationResult.ticketId,
       status: escalationResult.status,
-      verificationStatus: "needs_manual_review",
+      verificationStatus: "pending_manual_review",
     });
   } catch (error) {
     logger.error("Escalation error", {

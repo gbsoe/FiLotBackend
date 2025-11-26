@@ -70,13 +70,14 @@ async function processDocument(documentId: string) {
     }
 
     const docType = document.type as 'KTP' | 'NPWP';
-    const { outcome, score } = determineVerificationPath(docType, parsedResult);
+    const { outcome, score, decision } = determineVerificationPath(docType, parsedResult);
 
     await db
       .update(documents)
       .set({
         status: "completed",
         aiScore: score,
+        aiDecision: decision,
         verificationStatus: outcome,
         resultJson: parsedResult,
         ocrText: ocrText,
@@ -86,7 +87,7 @@ async function processDocument(documentId: string) {
 
     console.log(`Document ${documentId} processed with score ${score}, outcome: ${outcome}`);
 
-    if (outcome === "needs_manual_review") {
+    if (outcome === "pending_manual_review") {
       const docWithId = { ...document, id: documentId };
       await escalateToBuli2(docWithId, parsedResult, score);
       console.log(`Document ${documentId} escalated to Buli2 for manual review`);

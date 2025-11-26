@@ -1,8 +1,9 @@
 import { computeAIScore } from './aiScoring';
 
 export interface VerificationPathResult {
-  outcome: 'auto_verified' | 'needs_manual_review';
+  outcome: 'auto_approved' | 'pending_manual_review';
   score: number;
+  decision: 'auto_approve' | 'needs_review';
 }
 
 export function determineVerificationPath(
@@ -12,8 +13,8 @@ export function determineVerificationPath(
   const score = computeAIScore(type, parsedResult);
 
   if (score >= 75) {
-    return { outcome: 'auto_verified', score };
+    return { outcome: 'auto_approved', score, decision: 'auto_approve' };
   }
 
-  return { outcome: 'needs_manual_review', score };
+  return { outcome: 'pending_manual_review', score, decision: 'needs_review' };
 }

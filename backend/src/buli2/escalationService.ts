@@ -18,7 +18,9 @@ export async function escalateToBuli2(
   await db.update(documents)
     .set({
       buli2TicketId: result.ticketId,
-      verificationStatus: 'needs_manual_review'
+      verificationStatus: 'pending_manual_review',
+      aiScore: score,
+      aiDecision: 'needs_review'
     })
     .where(eq(documents.id, document.id));
 
