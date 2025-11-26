@@ -66,18 +66,21 @@ export const downloadFromR2 = async (key: string): Promise<Buffer> => {
 
 export const generatePresignedUrl = async (
   key: string,
-  expiresInSeconds: number = 300
+  expiresInSeconds?: number
 ): Promise<string> => {
+  const defaultExpiry = Number(process.env.R2_PRIVATE_URL_EXPIRY) || 3600;
+  const expiry = expiresInSeconds ?? defaultExpiry;
+  
   const command = new GetObjectCommand({
     Bucket: BUCKET,
     Key: key,
   });
 
   const signedUrl = await getSignedUrl(client, command, {
-    expiresIn: expiresInSeconds,
+    expiresIn: expiry,
   });
 
-  logger.info("Presigned URL generated", { key, expiresInSeconds });
+  logger.info("Presigned URL generated", { key, expiresInSeconds: expiry });
 
   return signedUrl;
 };
