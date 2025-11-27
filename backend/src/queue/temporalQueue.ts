@@ -18,9 +18,13 @@ function isTemporalDisabled(): boolean {
   return process.env.TEMPORAL_DISABLED === "true";
 }
 
+function getTemporalEndpoint(): string | undefined {
+  return process.env.TEMPORAL_ENDPOINT || process.env.TEMPORAL_ADDRESS;
+}
+
 function isTemporalConfigured(): boolean {
   return !!(
-    process.env.TEMPORAL_ADDRESS &&
+    getTemporalEndpoint() &&
     process.env.TEMPORAL_NAMESPACE &&
     !isTemporalDisabled()
   );
@@ -33,9 +37,9 @@ class TemporalQueue implements QueueClient {
   private isStarted: boolean = false;
 
   constructor(options: TemporalQueueOptions = {}) {
-    this.address = options.address || process.env.TEMPORAL_ADDRESS || "";
+    this.address = options.address || getTemporalEndpoint() || "";
     this.namespace = options.namespace || process.env.TEMPORAL_NAMESPACE || "default";
-    this.taskQueue = options.taskQueue || process.env.TEMPORAL_TASK_QUEUE || "filot-ocr-queue";
+    this.taskQueue = options.taskQueue || process.env.TEMPORAL_TASK_QUEUE || "filot-ocr";
 
     logger.info("TemporalQueue initialized", {
       address: this.address ? "[configured]" : "[not configured]",
@@ -49,14 +53,14 @@ class TemporalQueue implements QueueClient {
     if (isTemporalDisabled()) {
       throw new TemporalQueueNotConfiguredError(
         "Temporal is disabled (TEMPORAL_DISABLED=true). " +
-        "Set TEMPORAL_DISABLED=false and configure TEMPORAL_ADDRESS to use Temporal queue."
+        "Set TEMPORAL_DISABLED=false and configure TEMPORAL_ENDPOINT to use Temporal queue."
       );
     }
 
     if (!isTemporalConfigured()) {
       throw new TemporalQueueNotConfiguredError(
         "Temporal is not configured. Required environment variables: " +
-        "TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE. " +
+        "TEMPORAL_ENDPOINT (or TEMPORAL_ADDRESS), TEMPORAL_NAMESPACE. " +
         "See docs/TEMPORAL.md for setup instructions."
       );
     }
@@ -69,7 +73,7 @@ class TemporalQueue implements QueueClient {
     throw new TemporalQueueNotConfiguredError(
       "Temporal workflow execution is not yet implemented. " +
       "This is a preparation tranche - Temporal Cloud integration will be added in a future tranche. " +
-      "Use QUEUE_ENGINE=redis for now."
+      "Use OCR_ENGINE=redis for now."
     );
   }
 
@@ -88,7 +92,7 @@ class TemporalQueue implements QueueClient {
     if (!isTemporalConfigured()) {
       throw new TemporalQueueNotConfiguredError(
         "Cannot start Temporal worker - Temporal is not configured. " +
-        "Required: TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE."
+        "Required: TEMPORAL_ENDPOINT (or TEMPORAL_ADDRESS), TEMPORAL_NAMESPACE."
       );
     }
 

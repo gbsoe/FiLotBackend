@@ -5,9 +5,29 @@ import { startProcessingLoop, stopProcessingLoop } from './ocr/processor';
 import { validateServiceKeyAtStartup } from './middlewares/serviceKeyAuth';
 import { recoverStuckDocuments } from './workers/startupRecovery';
 import { isRedisHealthy, closeRedisConnection } from './services/redisClient';
+import { getConfiguredQueueEngine, isTemporalConfigured, isAutoFallbackEnabled } from './queue';
 
 const startServer = async (): Promise<void> => {
   validateServiceKeyAtStartup();
+  
+  const configuredEngine = getConfiguredQueueEngine();
+  const temporalConfigured = isTemporalConfigured();
+  const autoFallbackEnabled = isAutoFallbackEnabled();
+  
+  if (configuredEngine === "temporal" && !temporalConfigured) {
+    logger.info(`Using OCR engine: redis (temporal not configured - fallback active)`);
+  } else if (configuredEngine === "temporal") {
+    logger.info(`Using OCR engine: temporal`);
+  } else {
+    logger.info(`Using OCR engine: ${configuredEngine}`);
+  }
+  
+  logger.info("OCR Engine Configuration", {
+    engine: configuredEngine,
+    temporalConfigured,
+    autoFallbackEnabled,
+    ocrEngineEnv: process.env.OCR_ENGINE || "(not set - default: redis)",
+  });
   
   const redisHealthy = await isRedisHealthy();
   if (!redisHealthy) {

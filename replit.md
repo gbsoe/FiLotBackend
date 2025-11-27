@@ -7,6 +7,17 @@ FiLot Backend is a Node.js/TypeScript REST API server supporting the FiLot mobil
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **November 27, 2025**: Implemented T6.D Temporal Migration Preparation
+  - Added queue abstraction layer (`src/queue/`) for Redis/Temporal engine switching
+  - New environment variables: `OCR_ENGINE`, `OCR_AUTOFALLBACK`, `TEMPORAL_ENDPOINT`
+  - Temporal SDK dependencies added to package.json
+  - Temporal client skeleton and workflow type definitions created
+  - Health endpoint now returns `ocrEngine` field
+  - Startup logs indicate selected OCR engine
+  - Auto-fallback to Redis when Temporal not configured (OCR_AUTOFALLBACK=true by default)
+  - Unit tests for queue abstraction added
+  - Documentation: `docs/TRANCHE_T6.D.md`, `src/temporal/workflows/README.md`
+
 - **November 27, 2025**: Implemented T6.C Redis Queue Pipeline
   - Replaced in-memory OCR queue with persistent Redis-based queue system
   - Queue uses atomic operations for reliability (LIST, SET, ZSET, HASH data structures)
@@ -73,9 +84,10 @@ backend/src/
 ├── db/             # Drizzle ORM schema & migrations
 ├── middlewares/    # Error handling, rate limiting, service key auth
 ├── ocr/            # Tesseract OCR processing
+├── queue/          # Queue abstraction (Redis/Temporal) (T6.D)
 ├── routes/         # Express route definitions
 ├── services/       # R2 storage, AI scoring, BULI2 forwarding, Redis client
-├── temporal/       # Temporal workflow stubs
+├── temporal/       # Temporal workflow stubs and types (T6.D)
 ├── types/          # TypeScript type definitions
 ├── utils/          # Logger, file validation
 ├── verification/   # Hybrid verification engine
@@ -219,6 +231,23 @@ CF_R2_ACCESS_KEY_ID=your-access-key
 CF_R2_SECRET_ACCESS_KEY=your-secret-key
 CF_R2_BUCKET_NAME=your-bucket-name
 ```
+
+### OCR Engine Configuration (T6.D)
+```
+OCR_ENGINE=redis                  # Queue engine: 'redis' (default) or 'temporal'
+OCR_AUTOFALLBACK=true             # Auto-fallback to Redis if Temporal unavailable
+```
+
+### Temporal Configuration (T6.D - Optional, for future use)
+```
+TEMPORAL_ENDPOINT=                # Temporal server address (or use TEMPORAL_ADDRESS)
+TEMPORAL_NAMESPACE=default        # Temporal namespace
+TEMPORAL_TASK_QUEUE=filot-ocr     # Temporal task queue name
+TEMPORAL_API_KEY=                 # API key for Temporal Cloud (store in secrets)
+TEMPORAL_DISABLED=true            # Set to 'false' when Temporal is configured
+```
+
+**Note:** Temporal configuration is not required for the current release. The backend defaults to Redis-based queues. No secrets have been added; Temporal configuration is manual when infrastructure is ready.
 
 ### BULI2 Integration
 ```

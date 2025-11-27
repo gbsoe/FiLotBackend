@@ -49,14 +49,41 @@ function createClient(engine: QueueEngine, options?: QueueOptions): QueueClient 
   }
 }
 
+export function isAutoFallbackEnabled(): boolean {
+  const autoFallback = process.env.OCR_AUTOFALLBACK?.toLowerCase();
+  return autoFallback !== "false";
+}
+
+export function isTemporalConfigured(): boolean {
+  const temporalEndpoint = process.env.TEMPORAL_ENDPOINT || process.env.TEMPORAL_ADDRESS;
+  const temporalNamespace = process.env.TEMPORAL_NAMESPACE;
+  const temporalDisabled = process.env.TEMPORAL_DISABLED === "true";
+  
+  return !!(temporalEndpoint && temporalNamespace && !temporalDisabled);
+}
+
 export function getConfiguredQueueEngine(): QueueEngine {
-  const envEngine = process.env.QUEUE_ENGINE?.toLowerCase();
+  const envEngine = (process.env.OCR_ENGINE || process.env.QUEUE_ENGINE)?.toLowerCase();
   
   if (envEngine === "temporal") {
     const temporalDisabled = process.env.TEMPORAL_DISABLED === "true";
     if (temporalDisabled) {
-      logger.warn("QUEUE_ENGINE=temporal but TEMPORAL_DISABLED=true, should use redis");
+      logger.warn("OCR_ENGINE=temporal but TEMPORAL_DISABLED=true, using redis");
       return "redis";
+    }
+    
+    if (!isTemporalConfigured()) {
+      if (isAutoFallbackEnabled()) {
+        logger.warn("OCR_ENGINE=temporal but Temporal not configured, falling back to redis (OCR_AUTOFALLBACK=true)");
+        return "redis";
+      } else {
+        logger.error("OCR_ENGINE=temporal but Temporal not configured and OCR_AUTOFALLBACK=false");
+        throw new Error(
+          "Temporal is not configured. Required environment variables: " +
+          "TEMPORAL_ENDPOINT (or TEMPORAL_ADDRESS), TEMPORAL_NAMESPACE. " +
+          "Set OCR_AUTOFALLBACK=true to allow fallback to Redis, or configure Temporal."
+        );
+      }
     }
     return "temporal";
   }
