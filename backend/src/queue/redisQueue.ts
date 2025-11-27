@@ -1,4 +1,4 @@
-import { QueueClient } from "./index";
+import { QueueClient, QueueStatus } from "./index";
 import {
   enqueue,
   dequeue as redisDequeue,
@@ -21,11 +21,12 @@ class RedisQueue implements QueueClient {
     logger.info("RedisQueue initialized", { pollIntervalMs: this.pollIntervalMs });
   }
 
-  async enqueueDocument(documentId: string): Promise<void> {
+  async enqueueDocument(documentId: string): Promise<boolean> {
     const result = await enqueue(documentId);
     if (!result) {
       logger.info("Document already in queue or processing", { documentId });
     }
+    return result;
   }
 
   async dequeue(): Promise<string | null> {
@@ -52,11 +53,7 @@ class RedisQueue implements QueueClient {
     logger.info("RedisQueue worker stopped");
   }
 
-  async getStatus(): Promise<{
-    isRunning: boolean;
-    queueLength: number;
-    processingCount: number;
-  }> {
+  async getStatus(): Promise<QueueStatus> {
     const workerStatus = await getWorkerStatus();
     const queueLength = await getQueueLength();
     const processingCount = await getProcessingCount();

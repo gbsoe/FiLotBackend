@@ -1,11 +1,10 @@
 import createApp from './app';
 import { config } from './config/env';
 import { logger } from './utils/logger';
-import { startProcessingLoop } from './ocr/processor';
+import { startProcessingLoop, stopProcessingLoop } from './ocr/processor';
 import { validateServiceKeyAtStartup } from './middlewares/serviceKeyAuth';
 import { recoverStuckDocuments } from './workers/startupRecovery';
 import { isRedisHealthy, closeRedisConnection } from './services/redisClient';
-import { stopQueueWorker } from './workers/queueWorker';
 
 const startServer = async (): Promise<void> => {
   validateServiceKeyAtStartup();
@@ -25,19 +24,19 @@ const startServer = async (): Promise<void> => {
   const app = createApp();
   const port = config.PORT;
 
-  const server = app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, '0.0.0.0', async () => {
     logger.info(`FiLot Backend Server started`);
     logger.info(`Environment: ${config.NODE_ENV}`);
     logger.info(`Port: ${port}`);
     logger.info(`Health check: http://0.0.0.0:${port}/health`);
     
-    startProcessingLoop();
+    await startProcessingLoop();
   });
 
   const gracefulShutdown = async (signal: string): Promise<void> => {
     logger.info(`${signal} received, shutting down gracefully`);
     
-    stopQueueWorker();
+    await stopProcessingLoop();
     logger.info('Queue worker stopped');
     
     await closeRedisConnection();

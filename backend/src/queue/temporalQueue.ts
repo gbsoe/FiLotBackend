@@ -1,4 +1,4 @@
-import { QueueClient } from "./index";
+import { QueueClient, QueueStatus } from "./index";
 import { logger } from "../utils/logger";
 
 export interface TemporalQueueOptions {
@@ -45,7 +45,7 @@ class TemporalQueue implements QueueClient {
     });
   }
 
-  async enqueueDocument(documentId: string): Promise<void> {
+  async enqueueDocument(documentId: string): Promise<boolean> {
     if (isTemporalDisabled()) {
       throw new TemporalQueueNotConfiguredError(
         "Temporal is disabled (TEMPORAL_DISABLED=true). " +
@@ -119,11 +119,7 @@ class TemporalQueue implements QueueClient {
     this.isStarted = false;
   }
 
-  async getStatus(): Promise<{
-    isRunning: boolean;
-    queueLength: number;
-    processingCount: number;
-  }> {
+  async getStatus(): Promise<QueueStatus> {
     return {
       isRunning: this.isStarted,
       queueLength: 0,

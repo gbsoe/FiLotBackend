@@ -20,6 +20,7 @@ This tranche adds a queue abstraction layer to the FiLot backend, enabling a fut
 | `src/queue/redisQueue.ts` | **New** | Redis adapter implementing QueueClient interface |
 | `src/queue/temporalQueue.ts` | **New** | Temporal adapter skeleton with stub implementations |
 | `src/ocr/processor.ts` | **Modified** | Updated to use queue abstraction with Redis fallback |
+| `src/index.ts` | **Modified** | Updated to use startProcessingLoop/stopProcessingLoop from processor |
 | `package.json` | **Modified** | Added Temporal SDK dependencies |
 
 ---
@@ -58,18 +59,37 @@ This tranche adds a queue abstraction layer to the FiLot backend, enabling a fut
 ### QueueClient Interface
 
 ```typescript
+export interface QueueStatus {
+  isRunning: boolean;
+  queueLength: number;
+  processingCount: number;
+}
+
 export interface QueueClient {
-  enqueueDocument(documentId: string): Promise<void>;
-  dequeue?(): Promise<string | null>;
-  start?(): Promise<void>;
-  stop?(): Promise<void>;
-  getStatus?(): Promise<{
-    isRunning: boolean;
-    queueLength: number;
-    processingCount: number;
-  }>;
+  enqueueDocument(documentId: string): Promise<boolean>;
+  dequeue(): Promise<string | null>;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  getStatus(): Promise<QueueStatus>;
 }
 ```
+
+All methods are required to ensure consistent behavior across implementations. The `enqueueDocument` returns `boolean` to match existing Redis queue semantics (false if document already in queue).
+
+### Queue State Management
+
+The queue module maintains global state to track:
+- `client`: The current queue client instance
+- `engine`: The active engine type (redis or temporal)
+- `isRunning`: Whether the worker is currently processing
+
+Key functions:
+- `startQueue(engine?)`: Starts the queue with specified or configured engine
+- `stopQueue()`: Stops the current queue worker
+- `switchToRedis()`: Explicitly switches to Redis engine (used for fallback)
+- `getQueueClient(engine?)`: Gets the client for specified or active engine
+- `getConfiguredQueueEngine()`: Returns the engine from environment config
+- `getActiveQueueEngine()`: Returns the currently active engine
 
 ---
 
@@ -152,6 +172,18 @@ The system is designed with automatic fallback:
 2. If `TEMPORAL_DISABLED=true` with `QUEUE_ENGINE=temporal`:
    - Logs a warning about mismatch
    - Uses Redis queue
+
+### Known Limitations (Preparation Phase)
+
+The fallback mechanism in this preparation tranche is a best-effort implementation:
+
+- **Concurrent failure handling**: The current implementation does not include mutex/locking for concurrent Temporal failures during fallback. This is acceptable for the preparation phase as Temporal is not yet configured.
+- **State management**: Complex race conditions between queue state transitions are not fully addressed. These will be implemented in a future tranche when Temporal Cloud is configured and tested.
+
+For production Temporal deployment, the following enhancements are recommended:
+- Add promise-based locking for engine transitions
+- Implement proper client lifecycle tracking separate from engine state
+- Add integration tests for concurrent failure scenarios
 
 ---
 

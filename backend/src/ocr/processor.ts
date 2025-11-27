@@ -1,32 +1,34 @@
-import { getQueueClient, getDefaultQueueEngine, QueueEngine } from "../queue";
-import { enqueue } from "../services/queueService";
+import { 
+  getQueueClient, 
+  getConfiguredQueueEngine, 
+  getActiveQueueEngine,
+  startQueue,
+  stopQueue,
+  switchToRedis
+} from "../queue";
 import { logger } from "../utils/logger";
 
 export async function queueDocumentForProcessing(documentId: string): Promise<boolean> {
-  const engine = getDefaultQueueEngine();
-
+  const activeEngine = getActiveQueueEngine();
+  
   try {
-    if (engine === "temporal") {
-      const queueClient = getQueueClient({ engine: "temporal" });
-      await queueClient.enqueueDocument(documentId);
-      logger.info("Document queued for processing via Temporal", { documentId });
-      return true;
-    }
-
-    const result = await enqueue(documentId);
+    const queueClient = getQueueClient();
+    const result = await queueClient.enqueueDocument(documentId);
     if (result) {
-      logger.info("Document queued for processing via Redis", { documentId });
+      logger.info("Document queued for processing", { documentId, engine: activeEngine });
     }
     return result;
   } catch (error) {
-    if (engine === "temporal") {
+    if (activeEngine === "temporal") {
       logger.warn("Temporal queue failed, falling back to Redis", {
         documentId,
         error: error instanceof Error ? error.message : "Unknown error",
       });
 
       try {
-        const result = await enqueue(documentId);
+        await switchToRedis();
+        const redisClient = getQueueClient();
+        const result = await redisClient.enqueueDocument(documentId);
         if (result) {
           logger.info("Document queued for processing via Redis (fallback)", { documentId });
         }
@@ -48,8 +50,41 @@ export async function queueDocumentForProcessing(documentId: string): Promise<bo
   }
 }
 
-export function getActiveQueueEngine(): QueueEngine {
-  return getDefaultQueueEngine();
+export { getActiveQueueEngine };
+
+export async function startProcessingLoop(): Promise<void> {
+  const configuredEngine = getConfiguredQueueEngine();
+
+  try {
+    await startQueue(configuredEngine);
+    logger.info("Processing loop started", { engine: configuredEngine });
+  } catch (error) {
+    if (configuredEngine === "temporal") {
+      logger.warn("Temporal worker failed to start, falling back to Redis", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+
+      try {
+        await switchToRedis();
+        logger.info("Processing loop started with Redis fallback");
+        return;
+      } catch (fallbackError) {
+        logger.error("Failed to start Redis fallback worker after Temporal failure", {
+          error: fallbackError instanceof Error ? fallbackError.message : "Unknown error",
+        });
+        throw fallbackError;
+      }
+    }
+
+    logger.error("Failed to start processing loop", {
+      engine: configuredEngine,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    throw error;
+  }
 }
 
-export { startQueueWorker as startProcessingLoop } from "../workers/queueWorker";
+export async function stopProcessingLoop(): Promise<void> {
+  await stopQueue();
+  logger.info("Processing loop stopped");
+}
