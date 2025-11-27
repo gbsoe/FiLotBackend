@@ -13,6 +13,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { globalRateLimiter } from './middlewares/rateLimiter';
 import { corsConfig, getConfiguredOrigins } from './middlewares/corsConfig';
 import { logger } from './utils/logger';
+import { getTemporalClient } from './temporal/temporalClient';
 
 const createApp = (): Application => {
   const app = express();
@@ -43,6 +44,16 @@ const createApp = (): Application => {
   app.use('/documents/secure-download', downloadRoutes);
   app.use('/verification', verificationRoutes);
   app.use('/internal', internalRoutes);
+
+  app.get("/health/temporal", async (_req, res) => {
+    try {
+      const client = await getTemporalClient();
+      if (!client) throw new Error("No client");
+      res.json({ ok: true, temporal: "connected" });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
 
   app.use(notFoundHandler);
   app.use(errorHandler);

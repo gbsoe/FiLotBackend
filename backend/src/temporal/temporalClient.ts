@@ -5,14 +5,27 @@ let temporalClient: Client | null = null;
 export async function getTemporalClient() {
   if (temporalClient) return temporalClient;
 
+  const address = process.env.TEMPORAL_ADDRESS || process.env.TEMPORAL_ENDPOINT;
+  if (!address) {
+    throw new Error("TEMPORAL_ADDRESS or TEMPORAL_ENDPOINT environment variable is required");
+  }
+
+  const namespace = process.env.TEMPORAL_NAMESPACE;
+  if (!namespace) {
+    throw new Error("TEMPORAL_NAMESPACE environment variable is required");
+  }
+
+  const apiKey = process.env.TEMPORAL_API_KEY;
+
   const connection = await Connection.connect({
-    address: process.env.TEMPORAL_ADDRESS!,
+    address,
     tls: {},
+    apiKey,
   });
 
   temporalClient = new Client({
     connection,
-    namespace: process.env.TEMPORAL_NAMESPACE!,
+    namespace,
   });
 
   return temporalClient;

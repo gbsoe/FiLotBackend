@@ -13,7 +13,8 @@
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "temporal:test": "ts-node-dev src/temporal/testConnection.ts"
   },
   "keywords": [
     "filot",

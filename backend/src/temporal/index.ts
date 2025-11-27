@@ -1,7 +1,17 @@
+export * from "./temporalClient";
+export * from "./workflows";
 export * from "./workflows/kycReviewWorkflow";
 export * from "./activities/kycActivities";
 export * from "./workflowsStub";
-export * from "./client";
+export {
+  TemporalClientConfig,
+  TemporalConnectionStatus,
+  getTemporalConfig,
+  isTemporalConfigured,
+  createTemporalClient,
+  getConnectionStatus,
+  closeTemporalClient,
+} from "./client";
 
 export {
   OCRWorkflowInput,
