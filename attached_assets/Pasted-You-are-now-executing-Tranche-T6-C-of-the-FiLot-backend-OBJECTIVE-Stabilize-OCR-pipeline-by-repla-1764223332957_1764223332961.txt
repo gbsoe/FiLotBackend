@@ -1,0 +1,86 @@
+You are now executing Tranche T6.C of the FiLot backend.
+
+OBJECTIVE:
+Stabilize OCR pipeline by replacing in-memory queue with Redis, enabling persistent processing, backoff retry, file validation, and clean worker separation. This prepares FiLot for full Temporal GPU workflow migration.
+
+ACTIONS TO IMPLEMENT:
+
+1. ADD REDIS CLIENT
+- Install `ioredis`
+- Create `src/services/redisClient.ts`
+- Environment variables:
+  REDIS_URL
+  REDIS_PASSWORD
+
+2. IMPLEMENT PERSISTENT REDIS QUEUE
+- Create `src/services/queueService.ts`
+  Methods:
+    enqueue(documentId)
+    dequeue()
+    requeue(documentId)
+    getQueueLength()
+
+- Replace all in-memory queue usage in processor.ts
+- Remove queue array entirely
+
+3. ADD STARTUP RECOVERY LOGIC
+- On backend start:
+  Query all documents where status = 'processing'
+  Set status back to 'uploaded'
+  Requeue them into Redis
+- Implement in index.ts BEFORE starting workers
+
+4. IMPLEMENT RETRY LOGIC
+- Each OCR job gets attempt count (store in Redis hash)
+- After failure:
+    if attempts < 3 → requeue with exponential delay (3s, 9s, 27s)
+    else → set status = 'failed'
+- Store error JSON in result_json
+
+5. FILE MAGIC NUMBER VALIDATION
+- Update existing upload controller
+- Validate:
+    JPEG: FF D8 FF E0 / FF D8 FF E1
+    PNG: 89 50 4E 47
+- Reject invalid uploads
+
+6. WORKER REFACTOR
+- Create `src/workers/ocrWorker.ts`:
+  → only runs OCR + parsing + returns JSON result
+
+- Create `src/workers/queueWorker.ts`:
+  → loops on Redis.dequeue()
+  → calls ocrWorker
+  → applies retry logic
+
+7. INTERNAL BULI2 WEBHOOK STUB
+- Add route: POST /internal/verification/result
+- Only accept if header "x-service-key" matches SERVICE_INTERNAL_KEY
+- For now, just console.log + return 200
+
+8. UPDATE ALL ENVIRONMENT VARIABLES IN .env OR REPLIT SECRETS:
+  REDIS_URL
+  REDIS_PASSWORD
+  SERVICE_INTERNAL_KEY
+
+9. DO NOT MODIFY:
+- Existing routes
+- Schema
+- T6.A and T6.B security fixes
+
+AFTER ALL IMPLEMENTATION:
+- Run TypeScript check
+- Run lint
+- Start server and confirm worker loop triggers
+
+DELIVERABLE:
+Provide a generated patch report including:
+- all files modified
+- new files added
+- queue flow diagram
+- retry logic description
+- testing instructions
+- environment variable checklist
+- migration notes for Temporal
+
+Begin.
