@@ -7,6 +7,16 @@ FiLot Backend is a Node.js/TypeScript REST API server supporting the FiLot mobil
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **November 27, 2025**: Implemented T6.C Redis Queue Pipeline
+  - Replaced in-memory OCR queue with persistent Redis-based queue system
+  - Queue uses atomic operations for reliability (LIST, SET, ZSET, HASH data structures)
+  - Retry logic with exponential backoff (3s, 9s, 27s) up to 3 attempts
+  - Startup recovery automatically requeues stuck documents
+  - Graceful degradation when Redis is unavailable - server runs in degraded mode
+  - Enhanced file validation with specific JPEG magic number detection (JFIF, EXIF, ICC, etc.)
+  - New internal webhook stub: POST /internal/verification/result
+  - Documentation added: `docs/T6C_REDIS_QUEUE_PIPELINE.md`
+
 - **November 26, 2025**: Implemented T6.B Backend Security & Domain Finalization Patch
   - CORS now strictly allows only `https://app.filot.id` in production
   - Added `corsConfig.ts` middleware with environment-aware origin validation
@@ -64,11 +74,12 @@ backend/src/
 ├── middlewares/    # Error handling, rate limiting, service key auth
 ├── ocr/            # Tesseract OCR processing
 ├── routes/         # Express route definitions
-├── services/       # R2 storage, AI scoring, BULI2 forwarding
+├── services/       # R2 storage, AI scoring, BULI2 forwarding, Redis client
 ├── temporal/       # Temporal workflow stubs
 ├── types/          # TypeScript type definitions
 ├── utils/          # Logger, file validation
 ├── verification/   # Hybrid verification engine
+├── workers/        # Queue worker and OCR processor (T6.C)
 ├── app.ts          # Express app setup
 └── index.ts        # Server entry point
 ```
