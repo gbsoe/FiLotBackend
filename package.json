@@ -10,6 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@temporalio/client": "^1.13.2",
+    "@temporalio/common": "^1.13.2",
+    "@temporalio/worker": "^1.13.2",
     "@types/ioredis": "^4.28.10",
     "express-rate-limit": "^8.2.1",
     "ioredis": "^5.8.2",
