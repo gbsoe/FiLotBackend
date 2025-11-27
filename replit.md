@@ -1,267 +1,76 @@
 # FiLot Backend - Replit Configuration
 
 ## Overview
-FiLot Backend is a Node.js/TypeScript REST API server supporting the FiLot mobile financial AI assistant. Its core purpose is to provide secure authentication, user profile management, Indonesian document processing (KTP/NPWP OCR), conversational AI chat capabilities, and integration with external financial services. The project aims to deliver a robust and scalable backend solution for a financial AI assistant, emphasizing modularity, security, and a rich feature set to capture a significant market share in personal finance management.
+FiLot Backend is a Node.js/TypeScript REST API server for the FiLot mobile financial AI assistant. It provides secure authentication, user profile management, Indonesian document processing (KTP/NPWP OCR), conversational AI chat, and integration with external financial services. The project aims to deliver a robust, scalable, and secure backend solution for personal finance management.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes
-- **November 27, 2025**: Implemented T6.D Temporal Migration Preparation
-  - Added queue abstraction layer (`src/queue/`) for Redis/Temporal engine switching
-  - New environment variables: `OCR_ENGINE`, `OCR_AUTOFALLBACK`, `TEMPORAL_ENDPOINT`
-  - Temporal SDK dependencies added to package.json
-  - Temporal client skeleton and workflow type definitions created
-  - Health endpoint now returns `ocrEngine` field
-  - Startup logs indicate selected OCR engine
-  - Auto-fallback to Redis when Temporal not configured (OCR_AUTOFALLBACK=true by default)
-  - Unit tests for queue abstraction added
-  - Documentation: `docs/TRANCHE_T6.D.md`, `src/temporal/workflows/README.md`
-
-- **November 27, 2025**: Implemented T6.C Redis Queue Pipeline
-  - Replaced in-memory OCR queue with persistent Redis-based queue system
-  - Queue uses atomic operations for reliability (LIST, SET, ZSET, HASH data structures)
-  - Retry logic with exponential backoff (3s, 9s, 27s) up to 3 attempts
-  - Startup recovery automatically requeues stuck documents
-  - Graceful degradation when Redis is unavailable - server runs in degraded mode
-  - Enhanced file validation with specific JPEG magic number detection (JFIF, EXIF, ICC, etc.)
-  - New internal webhook stub: POST /internal/verification/result
-  - Documentation added: `docs/T6C_REDIS_QUEUE_PIPELINE.md`
-
-- **November 26, 2025**: Implemented T6.B Backend Security & Domain Finalization Patch
-  - CORS now strictly allows only `https://app.filot.id` in production
-  - Added `corsConfig.ts` middleware with environment-aware origin validation
-  - Added `verifyServiceKey.ts` middleware for internal route protection
-  - R2 presigned URLs now use `R2_PRIVATE_URL_EXPIRY` environment variable (default: 3600s)
-  - New secure download endpoint: `GET /documents/secure-download/:id`
-  - Secure downloads require JWT authentication and document ownership validation
-  - Documentation added: `docs/T6B_BACKEND_SECURITY_PATCH.md`
-
-- **November 26, 2025**: Implemented T6.A Security Hardening Patch
-  - R2 bucket now private with presigned URL system
-  - Added rate limiting (60/min global, 10/min for sensitive routes)
-  - CORS restricted to FiLot frontend only
-  - Internal routes secured with service API key
-  - File validation with magic-number, MIME, and size checks
-
 ## System Architecture
 
-### Core Framework & Runtime
-The backend is built on Node.js with TypeScript (strict mode) and Express.js 4.x. It uses CommonJS modules and targets ES2020. Development uses hot-reloading with `ts-node-dev`, compiling to JavaScript for production. This provides a robust, type-safe, and performant foundation.
+### Core Technologies
+The backend uses Node.js with TypeScript and Express.js. It features a layered architecture for modularity and maintainability.
 
-### Security Architecture (T6.A Enhanced)
-Security is paramount, utilizing:
-- **Helmet.js** for secure HTTP headers
-- **CORS hardening** - restricted to FiLot frontend origins only
-- **JWT-based authentication** for user routes
-- **Service key authentication** for internal routes (x-service-key header)
-- **Rate limiting** - global (60/min) and sensitive routes (10/min)
-- **File validation** - magic-number detection, MIME validation, 5MB size limit
-- **Presigned URLs** - R2 bucket is now private, documents accessed via time-limited signed URLs
-- Password hashing handled by bcryptjs
-- Input validation enforced using Zod schema validation
-
-### Rate Limiting
-- **Global limiter**: 60 requests/minute per IP (applied after auth routes)
-- **Sensitive limiter**: 10 requests/minute per IP
-  - POST /documents/upload
-  - POST /documents/:id/process
-  - POST /verification/evaluate
-  - POST /verification/:documentId/escalate
-  - All /internal/* routes
+### Security Architecture
+Security is a core focus, utilizing:
+- **Helmet.js** for secure HTTP headers.
+- **CORS hardening** restricted to the FiLot frontend.
+- **JWT-based authentication** for user routes.
+- **Service key authentication** for internal routes.
+- **Rate limiting** (global and sensitive routes).
+- **File validation** (magic-number, MIME, size limits).
+- **Presigned URLs** for secure access to private R2 bucket documents.
+- Password hashing with bcryptjs and Zod for input validation.
 
 ### Error Handling & Logging
-A centralized global error handler, a dedicated 404 handler, and a custom logger utility ensure consistent error responses and effective debugging. Morgan middleware is used for HTTP request logging, and process-level handlers manage graceful shutdowns and log unhandled exceptions.
-
-### Project Structure
-The project follows a layered architecture:
-```
-backend/src/
-├── auth/           # JWT & authentication middleware
-├── buli2/          # BULI2 client & escalation service
-├── config/         # Environment configuration
-├── controllers/    # Route handlers
-├── db/             # Drizzle ORM schema & migrations
-├── middlewares/    # Error handling, rate limiting, service key auth
-├── ocr/            # Tesseract OCR processing
-├── queue/          # Queue abstraction (Redis/Temporal) (T6.D)
-├── routes/         # Express route definitions
-├── services/       # R2 storage, AI scoring, BULI2 forwarding, Redis client
-├── temporal/       # Temporal workflow stubs and types (T6.D)
-├── types/          # TypeScript type definitions
-├── utils/          # Logger, file validation
-├── verification/   # Hybrid verification engine
-├── workers/        # Queue worker and OCR processor (T6.C)
-├── app.ts          # Express app setup
-└── index.ts        # Server entry point
-```
+A centralized global error handler, a 404 handler, and a custom logger ensure consistent error responses and effective debugging. Morgan middleware is used for HTTP request logging.
 
 ### Configuration Management
-Environment variables are loaded via `dotenv` from `.env` files, with type-safe configuration managed by `config/env.ts`. Default values are provided for development, and warnings are issued for unset required variables, ensuring robust and flexible deployment across environments.
+Environment variables are loaded via `dotenv`, with type-safe configuration ensuring robust deployments.
 
-### Code Quality & Standards
-Code quality is maintained through automated tools: ESLint for TypeScript-aware linting, Prettier for consistent code formatting, and strict TypeScript compiler flags to enforce type safety and catch errors early.
+### Code Quality
+ESLint, Prettier, and strict TypeScript compiler flags enforce high code quality and consistency.
 
-### File Upload Handling (T6.A Enhanced)
-- Multer for `multipart/form-data` file uploads
-- **5MB maximum file size**
-- **Supported types**: JPEG, PNG, PDF only
-- **Validation before upload**: Magic-number detection, MIME validation
-- Files stored in private R2 bucket (key-only, no public URLs)
-- Download via presigned URLs (5-minute expiry)
+### File Upload and Document Processing
+- Supports JPEG, PNG, PDF files up to 5MB via Multer.
+- Files are stored in a private R2 bucket, accessed via time-limited presigned URLs.
+- Integrates Tesseract OCR for Indonesian document processing (KTP/NPWP).
+- Features an asynchronous processing pipeline with Redis-based or Temporal-based queuing.
 
-### Document Processing & OCR
-The system integrates Tesseract OCR for processing Indonesian (KTP/NPWP) and English documents. It features an asynchronous OCR pipeline with an in-memory queue, KTP and NPWP parsers using regex for data extraction, background processing, R2 file download for OCR, and status tracking (uploaded, processing, completed, failed) in the database.
-
-### Hybrid Verification System (Tranche 6)
-The verification system combines AI-powered scoring with manual review capabilities:
-
-**AI Scoring Engine** (`verification/aiScoring.ts`):
-- Simple rule-based `computeAIScore()` function for KTP/NPWP documents
-- Calculates completeness score + format validation bonus
-- Auto-verified threshold: score ≥75
-
-**Hybrid Decision Engine** (`verification/hybridEngine.ts`):
-- `determineVerificationPath()` determines outcome based on AI score
-- Outcomes: `auto_approved` (≥75) or `pending_manual_review` (<75)
-- Returns score, outcome, and decision for database persistence
-
-**AI Scoring Service** (`services/aiScoring.ts`):
-- Computes confidence scores (0-100) based on parsed data quality
-- Validates NIK (16-digit) and NPWP (15-digit) formats
-- Automated decisions: `auto_approve` (≥85), `auto_reject` (<35), or `needs_review`
-
-**BULI2 Client** (`buli2/buli2Client.ts`):
-- Mock `sendToBuli2()` function for future Buli2 API integration
-- Returns ticket ID and queue status
-
-**BULI2 Escalation Service** (`buli2/escalationService.ts`):
-- `escalateToBuli2()` handles document escalation workflow
-- Updates document with Buli2 ticket ID and verification status
-- Persists aiScore and aiDecision for tracking
-
-**BULI2 Integration** (`services/forwardToBuli2.ts`):
-- Forwards reviews requiring human verification to BULI2 queue
-- Includes retry logic with exponential backoff (3 attempts)
-- Supports callback-based decision notification
-
-**OCR Processor Integration**:
-- After OCR completion, automatically runs hybrid verification
-- Score ≥75 → `auto_approved`, no escalation
-- Score <75 → `pending_manual_review`, escalated to Buli2
-
-**Document Routes** (`routes/documentsRoutes.ts`):
-- `POST /documents/upload` - Upload document (rate limited)
-- `GET /documents/:id/download` - Get presigned download URL
-
-**Secure Download Route** (`routes/downloadRoutes.ts`) - Added in T6.B:
-- `GET /documents/secure-download/:id` - Authenticated presigned download URL
-  - Requires JWT authentication
-  - Validates document ownership (users can only download their own documents)
-  - Returns time-limited presigned URL (configurable via R2_PRIVATE_URL_EXPIRY)
-
-**Verification Routes** (`routes/verificationRoutes.ts`):
-- `POST /verification/evaluate` - Evaluates processed documents (rate limited)
-- `GET /verification/status/:documentId` - Returns verification status with aiScore, buli2TicketId
-- `POST /verification/:documentId/escalate` - Manually escalates document to Buli2 (rate limited)
-
-**Internal BULI2 Routes** (`routes/internalRoutes.ts`) - Protected with service key:
-- `POST /internal/reviews` - Accepts review tasks
-- `GET /internal/reviews/:taskId/status` - Check review status
-- `POST /internal/reviews/:taskId/decision` - Record manual decision
-- `POST /internal/reviews/:reviewId/callback` - Receive decision callbacks
-
-**Temporal Stubs** (`temporal/workflowsStub.ts`):
-- `startVerificationWorkflow()` - Stub for future Temporal workflow
-- `notifyBuli2ManualReview()` - Stub for Buli2 notification
-- KYC Review workflow definition for future Temporal Cloud integration
-- Activity stubs for notifications, status updates, and finalization
-
-**Documents Table Schema Updates**:
-- `ai_score` - Integer confidence score from AI scoring
-- `ai_decision` - Decision string (auto_approve, needs_review, auto_reject)
-- `verification_status` - Status (pending, auto_approved, pending_manual_review, etc.)
-- `buli2_ticket_id` - Buli2 queue ticket ID for escalated documents
-- `processed_at` - Timestamp when OCR processing completed
+### Hybrid Verification System
+Combines AI-powered scoring with manual review capabilities:
+- **AI Scoring Engine**: Computes confidence scores (0-100) for KTP/NPWP based on completeness and format validation.
+  - Documents with scores ≥85 are `auto_approved`.
+  - Documents with scores <35 are `auto_reject`.
+  - Documents with scores between 35 and 85 are `needs_review`.
+- **Hybrid Decision Engine**: Determines verification path (`auto_approved` or `pending_manual_review`).
+- **BULI2 Integration**: Documents requiring manual review are escalated to the BULI2 review service.
+- **Secure Download Route**: Provides authenticated, owner-specific access to processed documents via presigned URLs.
+- **Documents Table Schema**: Includes fields for `ai_score`, `ai_decision`, `verification_status`, `buli2_ticket_id`, and `processed_at`.
 
 ## External Dependencies
 
 ### Production Dependencies
-- **express**: Web application framework.
-- **express-rate-limit**: Rate limiting middleware (T6.A).
-- **cors**: Cross-origin resource sharing middleware.
-- **helmet**: Security headers middleware.
-- **morgan**: HTTP request logger.
-- **dotenv**: Environment variable loader.
-- **zod**: TypeScript-first schema validation.
-- **jsonwebtoken**: JWT token creation/verification.
-- **jose**: Modern JWT verification with JWKS support.
-- **bcryptjs**: Password hashing library.
-- **multer**: File upload middleware.
-- **@aws-sdk/client-s3**: S3-compatible storage client for Cloudflare R2.
-- **@aws-sdk/s3-request-presigner**: Signed URL generation.
-- **mime-types**: MIME type detection and extension mapping.
-- **uuid**: Unique identifier generation.
-- **drizzle-orm**: TypeScript ORM for SQL databases.
-- **pg**: PostgreSQL client for Node.js.
-- **node-tesseract-ocr**: Node.js wrapper for Tesseract OCR.
-- **tesseract** (System package): Open source OCR engine.
+- **express**: Web framework.
+- **express-rate-limit**: Rate limiting.
+- **cors**: CORS middleware.
+- **helmet**: Security headers.
+- **morgan**: HTTP request logging.
+- **dotenv**: Environment variables.
+- **zod**: Schema validation.
+- **jsonwebtoken**, **jose**: JWT handling.
+- **bcryptjs**: Password hashing.
+- **multer**: File uploads.
+- **@aws-sdk/client-s3**, **@aws-sdk/s3-request-presigner**: Cloudflare R2 storage.
+- **mime-types**: MIME type detection.
+- **uuid**: Unique IDs.
+- **drizzle-orm**, **pg**: PostgreSQL ORM and client.
+- **node-tesseract-ocr**: Tesseract OCR wrapper.
+- **redis**: Redis client for queuing.
+- **@temporalio/proto**, **@temporalio/workflow**: Temporal SDK.
 
-### Current & Future External Service Integrations
-- **BULI2 Review Service**: Hybrid verification system for document review (Integrated in Tranche 6).
-- **Temporal Cloud**: Durable workflow execution for KYC review process (Stubs ready).
+### External Service Integrations
+- **BULI2 Review Service**: For manual document review.
+- **Temporal Cloud**: For durable workflow execution (future KYC review process).
 - **FiLot DeFi API**: For decentralized finance operations.
 - **Project Alpha API**: For additional financial services.
-- **Email Service**: For password resets and notifications.
-- **Session Store**: Potentially Redis for token management.
-
-## Environment Variables
-
-### T6.B Security (Required)
-```
-FILOT_FRONTEND_ORIGIN=https://app.filot.id
-SERVICE_INTERNAL_KEY=your-secure-64-char-service-key-here
-R2_PRIVATE_URL_EXPIRY=3600
-```
-
-### R2 Storage (Required)
-```
-CF_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
-CF_R2_ACCESS_KEY_ID=your-access-key
-CF_R2_SECRET_ACCESS_KEY=your-secret-key
-CF_R2_BUCKET_NAME=your-bucket-name
-```
-
-### OCR Engine Configuration (T6.D)
-```
-OCR_ENGINE=redis                  # Queue engine: 'redis' (default) or 'temporal'
-OCR_AUTOFALLBACK=true             # Auto-fallback to Redis if Temporal unavailable
-```
-
-### Temporal Configuration (T6.D - Optional, for future use)
-```
-TEMPORAL_ENDPOINT=                # Temporal server address (or use TEMPORAL_ADDRESS)
-TEMPORAL_NAMESPACE=default        # Temporal namespace
-TEMPORAL_TASK_QUEUE=filot-ocr     # Temporal task queue name
-TEMPORAL_API_KEY=                 # API key for Temporal Cloud (store in secrets)
-TEMPORAL_DISABLED=true            # Set to 'false' when Temporal is configured
-```
-
-**Note:** Temporal configuration is not required for the current release. The backend defaults to Redis-based queues. No secrets have been added; Temporal configuration is manual when infrastructure is ready.
-
-### BULI2 Integration
-```
-BULI2_API_URL=http://localhost:8080
-BULI2_API_KEY=
-BULI2_CALLBACK_URL=http://localhost:8080/internal/reviews
-AI_SCORE_THRESHOLD_AUTO_APPROVE=85
-AI_SCORE_THRESHOLD_AUTO_REJECT=35
-```
-
-## Running the Backend
-```bash
-cd backend
-npm run dev    # Development with hot-reload
-npm run build  # Production build
-npm start      # Start production server
-```
