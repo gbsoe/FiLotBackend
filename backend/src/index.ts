@@ -3,9 +3,24 @@ import { config } from './config/env';
 import { logger } from './utils/logger';
 import { startProcessingLoop } from './ocr/processor';
 import { validateServiceKeyAtStartup } from './middlewares/serviceKeyAuth';
+import { recoverStuckDocuments } from './workers/startupRecovery';
+import { isRedisHealthy, closeRedisConnection } from './services/redisClient';
+import { stopQueueWorker } from './workers/queueWorker';
 
-const startServer = (): void => {
+const startServer = async (): Promise<void> => {
   validateServiceKeyAtStartup();
+  
+  const redisHealthy = await isRedisHealthy();
+  if (!redisHealthy) {
+    logger.warn("Redis not available - queue features may be limited");
+  } else {
+    logger.info("Redis connection healthy");
+    
+    const recoveredCount = await recoverStuckDocuments();
+    if (recoveredCount > 0) {
+      logger.info(`Recovered ${recoveredCount} stuck documents at startup`);
+    }
+  }
   
   const app = createApp();
   const port = config.PORT;
@@ -19,8 +34,15 @@ const startServer = (): void => {
     startProcessingLoop();
   });
 
-  const gracefulShutdown = (signal: string): void => {
+  const gracefulShutdown = async (signal: string): Promise<void> => {
     logger.info(`${signal} received, shutting down gracefully`);
+    
+    stopQueueWorker();
+    logger.info('Queue worker stopped');
+    
+    await closeRedisConnection();
+    logger.info('Redis connection closed');
+    
     server.close(() => {
       logger.info('Server closed');
       process.exit(0);

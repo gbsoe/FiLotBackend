@@ -306,4 +306,37 @@ router.post("/reviews/:reviewId/callback", async (req: Request, res: Response) =
   }
 });
 
+router.post("/verification/result", async (req: Request, res: Response) => {
+  try {
+    const {
+      documentId,
+      userId,
+      verificationResult,
+      score,
+      decision,
+      metadata,
+    } = req.body;
+
+    logger.info("BULI2: Received verification result", {
+      documentId,
+      userId,
+      verificationResult,
+      score,
+      decision,
+      metadata,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Verification result received",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error("BULI2: Failed to process verification result", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return res.status(500).json({ error: "Failed to process verification result" });
+  }
+});
+
 export default router;
