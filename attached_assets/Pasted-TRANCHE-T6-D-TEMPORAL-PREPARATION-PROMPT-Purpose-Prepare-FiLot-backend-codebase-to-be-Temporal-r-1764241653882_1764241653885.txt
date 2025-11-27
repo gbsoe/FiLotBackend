@@ -1,0 +1,233 @@
+TRANCHE T6.D — TEMPORAL PREPARATION PROMPT
+
+Purpose: Prepare FiLot backend codebase to be Temporal-ready while keeping Redis queue as fallback. No cloud infra changes. Update docs and create a Tranche artifact.
+
+Paste the whole block below verbatim into the Replit agent prompt input.
+
+TRANCHE T6.D — TEMPORAL MIGRATION PREP (for Replit Agent)
+
+Objective: make the FiLot backend Temporal-ready by adding a queue abstraction and a Temporal adapter while preserving the existing Redis-based OCR queue. This is code-only work inside the backend repo — do not provision or configure Temporal Cloud, AWS, or any external infra in this tranche. Update docs and create TRANCHE_T6.D.md describing what changed and how to flip to Temporal later.
+
+High-level tasks (implement and verify):
+
+Install dependencies
+
+Add @temporalio/client, @temporalio/worker, and @temporalio/common (latest compatible versions) to backend package.json and npm install (or pnpm if used).
+
+Keep or confirm ioredis/bull (existing Redis libs) remain intact for fallback.
+
+Create queue abstraction
+
+New folder: backend/src/queue/
+
+Files:
+
+backend/src/queue/index.ts — exported interface and factory:
+
+export type QueueEngine = 'redis' | 'temporal'
+
+export interface QueueClient { enqueueDocument(documentId: string): Promise<void>; dequeue?(): Promise<void>; start?(): Promise<void>; stop?(): Promise<void>; }
+
+export function createQueueClient(engine: QueueEngine, opts: any): QueueClient — returns Redis client or Temporal client depending on engine.
+
+backend/src/queue/redisQueue.ts — adapt existing in-memory or Redis queue logic into QueueClient interface. Keep all original behavior intact. Export a factory createRedisQueue(opts).
+
+backend/src/queue/temporalQueue.ts — skeleton Temporal adapter implementing QueueClient with stubs (no external connection). The implementation should:
+
+Provide methods that throw helpful error if TEMPORAL_DISABLED=true or TEMPORAL_NOT_CONFIGURED.
+
+Implement enqueueDocument(documentId) to call Temporal client when configured (but default stubbed to log and return).
+
+Include TODOs and clear comments describing where to add real Temporal invocation later (workflow name, task queue).
+
+Ensure all code is TypeScript-typed and exports are used by the app.
+
+Add environment switch
+
+Add OCR_ENGINE env var support:
+
+Accept OCR_ENGINE=redis (default) or OCR_ENGINE=temporal.
+
+Add TEMPORAL_ENDPOINT and TEMPORAL_NAMESPACE env var reads but do not require them for startup when OCR_ENGINE=redis.
+
+Add safe defaults: if OCR_ENGINE=temporal and Temporal config missing, server should refuse to start with a clear error message OR fallback to redis based on OCR_AUTOFALLBACK=true/false. Make OCR_AUTOFALLBACK=true default.
+
+Wire the backend to use queue abstraction
+
+Replace direct queue enqueue points (e.g., where queueDocumentForProcessing used) to call queueClient.enqueueDocument(documentId).
+
+Initialize the queueClient at server bootstrap time (e.g., in backend/src/index.ts or app.ts) using createQueueClient(process.env.OCR_ENGINE || 'redis', options).
+
+Ensure graceful shutdown: call queueClient.stop() on SIGINT/SIGTERM.
+
+Temporal client skeleton
+
+Add backend/src/temporal/client.ts — Temporal client creation function that:
+
+Reads TEMPORAL_ENDPOINT, TEMPORAL_NAMESPACE, TEMPORAL_API_KEY (if needed).
+
+For now, create a lazy client that is not connected unless the env vars are present.
+
+Provide detailed logging if env present.
+
+Do not attempt to connect to any external Temporal endpoint during tests unless env configured by developer.
+
+Add clear inline comments on how to configure Temporal Cloud credentials (do not add any secrets).
+
+Worker / activity contracts
+
+Add backend/src/temporal/workflows/README.md describing the intended workflow signature:
+
+Workflow name: filot.ocrs.workflow
+
+Input: { documentId: string, userId?: string }
+
+Activities: downloadFromR2, runOCR, parse, saveResult
+
+Expected task queue: filot-ocr
+
+Add backend/src/temporal/types.ts with TypeScript interfaces for the workflow and activity inputs/outputs.
+
+Tests
+
+Add unit tests (Jest or existing test runner) for queue/index.ts that:
+
+Instantiates createQueueClient('redis') and verifies enqueueDocument() resolves.
+
+Instantiates createQueueClient('temporal') in stub mode (without Temporal env) and verifies calling enqueueDocument() either returns a resolved stub promise or the configured fallback behavior.
+
+Add one integration-ish test that simulates uploading a document and asserts queueClient.enqueueDocument() is invoked (mock the concrete queue).
+
+Docs & README
+
+Create backend/docs/TRANCHE_T6.D.md containing:
+
+Summary of changes
+
+How to switch to Temporal (env vars to set)
+
+How to run local dev with OCR_ENGINE=redis
+
+How to run with OCR_ENGINE=temporal (notes: requires Temporal endpoint; not provided here)
+
+Safety notes: fallback behavior, how to disable auto-fallback
+
+Rollback instructions (set OCR_ENGINE=redis and restart)
+
+Update backend/README.md and replit.md:
+
+Add OCR_ENGINE, TEMPORAL_ENDPOINT, TEMPORAL_NAMESPACE, OCR_AUTOFALLBACK env var descriptions
+
+Document that no secrets were added and Temporal configuration is manual.
+
+Code quality
+
+Run TypeScript build and lint: npm run build and npm run lint.
+
+Fix any type errors introduced.
+
+Ensure no runtime exceptions thrown when OCR_ENGINE=redis (default).
+
+CI / Startup change
+
+Ensure server startup logs indicate selected engine: Using OCR engine: redis or Using OCR engine: temporal (disabled - no config).
+
+Add health-check endpoint: GET /health returns { ok: true, ocrEngine: "<engine>" }.
+
+Commit & artifact
+
+Create a branch t6d/temporal-prep/<your-name-or-id>.
+
+Commit changes with clear messages.
+
+Generate backend/docs/TRANCHE_T6.D.md and attach it to the commit.
+
+Push branch and create a PR candidate (optional) and print PR instructions in the final agent reply.
+
+Success criteria (automated checks to run inside this prompt):
+
+npm ci / npm install completes without errors.
+
+npm run build finishes with zero TypeScript errors.
+
+Unit tests for queue abstraction pass.
+
+App starts with OCR_ENGINE=redis and the health endpoint returns ocrEngine: "redis".
+
+App starts with OCR_ENGINE=temporal but without Temporal env: it should either:
+
+log a clear message and fall back to redis (if OCR_AUTOFALLBACK=true), or
+
+refuse to start and print an explicit error telling the operator to set Temporal env variables (if OCR_AUTOFALLBACK=false).
+
+Choose the first option (autofallback=true) for safety in this tranche.
+
+Security & safety constraints (must be enforced in the patch):
+
+Do not add any secret keys into code or repo.
+
+Add comments where Temporal credentials go, and remind user to store them in Replit Secrets or their secret manager.
+
+Preserve existing Redis queue functionality and do not change production defaults (default remains redis).
+
+Any console.log of token or secret must be avoided.
+
+Rollback plan (automated steps):
+
+To rollback to working state:
+
+Set OCR_ENGINE=redis (or unset OCR_ENGINE).
+
+Restart the backend.
+
+Revert the branch if necessary.
+
+Deliverables (files to create / update):
+
+backend/src/queue/index.ts (new)
+
+backend/src/queue/redisQueue.ts (new/adapter of existing Redis/in-memory queue)
+
+backend/src/queue/temporalQueue.ts (new skeleton)
+
+backend/src/temporal/client.ts (new)
+
+backend/src/temporal/types.ts (new)
+
+backend/src/temporal/workflows/README.md (new)
+
+backend/docs/TRANCHE_T6.D.md (new)
+
+Update backend/README.md and backend/replit.md
+
+Modify server bootstrap backend/src/index.ts or app.ts to initialize queue client
+
+Add/modify tests under backend/test/queue.*.test.ts
+
+Add health endpoint /health if not present
+
+Behavioral tests (manual steps to verify):
+
+Start backend locally (default): OCR_ENGINE=redis npm run dev
+
+Call GET /health → should return { ok: true, ocrEngine: "redis" }.
+
+Upload a document (use existing upload endpoint) → check DB documents entry and confirm status=uploaded.
+
+Call process endpoint → should inject into Redis queue and backend processor should pick up (as before).
+
+Start backend with OCR_ENGINE=temporal but without Temporal env set:
+
+Backend should start, log temporal not configured, fallback to redis and health shows ocrEngine: "redis" OR show configured engine state per OCR_AUTOFALLBACK.
+
+No external calls attempted.
+
+Start backend with OCR_ENGINE=temporal and Temporal envs set (developer-only manual testing):
+
+Confirm initialization logs show temporal client configured (but do not attempt to actually run workflows unless Temporal endpoint reachable).
+
+Attempt enqueueDocument() should call Temporal client functions (stubbed if no actual endpoint).
+
+Final message to user (agent should print):
+
+Branch name, commit hash, list of files changed, how to run tests, and the contents of backend/docs/TRANCHE_T6.D.md. If any step failed, indicate errors and remediation steps.
