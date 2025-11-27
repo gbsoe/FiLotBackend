@@ -42,7 +42,7 @@ FiLot uses the `filot-ocr` namespace configured in Temporal Cloud with:
 
 ## Client Configuration
 
-The Temporal client is initialized with TLS enabled for secure cloud connections:
+The Temporal client is initialized with TLS and API key authentication enabled for secure Temporal Cloud connections:
 
 ```typescript
 import { Connection, Client } from "@temporalio/client";
@@ -50,6 +50,7 @@ import { Connection, Client } from "@temporalio/client";
 const connection = await Connection.connect({
   address: process.env.TEMPORAL_ADDRESS!,
   tls: {},
+  apiKey: process.env.TEMPORAL_API_KEY!,
 });
 
 const client = new Client({
@@ -57,6 +58,8 @@ const client = new Client({
   namespace: process.env.TEMPORAL_NAMESPACE!,
 });
 ```
+
+**Note:** All three environment variables (`TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_API_KEY`) are required. The client factory will throw a configuration error if any are missing.
 
 ## Health Check Endpoint
 

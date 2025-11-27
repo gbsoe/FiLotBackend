@@ -16,6 +16,9 @@ export async function getTemporalClient() {
   }
 
   const apiKey = process.env.TEMPORAL_API_KEY;
+  if (!apiKey) {
+    throw new Error("TEMPORAL_API_KEY environment variable is required for Temporal Cloud authentication");
+  }
 
   const connection = await Connection.connect({
     address,
