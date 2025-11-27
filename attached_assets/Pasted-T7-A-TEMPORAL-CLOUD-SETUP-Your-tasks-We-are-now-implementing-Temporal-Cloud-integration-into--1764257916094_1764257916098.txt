@@ -1,0 +1,198 @@
+T7.A TEMPORAL CLOUD SETUP
+
+Your tasks:
+
+We are now implementing **Temporal Cloud integration** into the FiLot backend.
+This is preparation for GPU-based OCR workflows and hybrid verification.
+
+Follow these steps exactly.
+
+---
+
+# **1. Install required dependencies**
+
+Install:
+
+* `@temporalio/client`
+* `@temporalio/common`
+* `@temporalio/proto`
+* `@temporalio/workflow`
+
+Run:
+
+```
+npm install @temporalio/client @temporalio/common @temporalio/proto @temporalio/workflow
+```
+
+---
+
+# **2. Create folder: `backend/src/temporal/`**
+
+Inside, create 3 files:
+
+---
+
+## **📌 2.1 `backend/src/temporal/temporalClient.ts`**
+
+Create the Temporal client factory:
+
+```ts
+import { Connection, Client } from "@temporalio/client";
+
+let temporalClient: Client | null = null;
+
+export async function getTemporalClient() {
+  if (temporalClient) return temporalClient;
+
+  const connection = await Connection.connect({
+    address: process.env.TEMPORAL_ADDRESS!,
+    tls: {},
+  });
+
+  temporalClient = new Client({
+    connection,
+    namespace: process.env.TEMPORAL_NAMESPACE!,
+  });
+
+  return temporalClient;
+}
+```
+
+---
+
+## **📌 2.2 `backend/src/temporal/workflows.ts`**
+
+Temporary placeholder workflow (validated later in T7.C):
+
+```ts
+// Dummy placeholder workflow for setup (will be replaced later)
+import { proxyActivities } from "@temporalio/workflow";
+
+export const dummyWorkflow = async (): Promise<string> => {
+  return "Temporal workflow connection OK";
+};
+```
+
+---
+
+## **📌 2.3 `backend/src/temporal/index.ts`**
+
+Export convenience functions:
+
+```ts
+export * from "./temporalClient";
+export * from "./workflows";
+```
+
+---
+
+# **3. Add Temporal ENV variables (Replit Secrets)**
+
+Add the following environment variables:
+
+```
+TEMPORAL_ADDRESS=<your-namespace-id>.tmprl.cloud:7233
+TEMPORAL_NAMESPACE=filot-ocr
+TEMPORAL_API_KEY=<your temporal cloud api key>
+```
+
+(All values come from your Temporal Cloud console.)
+
+---
+
+# **4. Update Express app: health check + Temporal check**
+
+Modify `backend/src/app.ts`
+Add:
+
+```ts
+import { getTemporalClient } from "./temporal/temporalClient";
+
+app.get("/health/temporal", async (_req, res) => {
+  try {
+    const client = await getTemporalClient();
+    if (!client) throw new Error("No client");
+    res.json({ ok: true, temporal: "connected" });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+```
+
+---
+
+# **5. Update package.json scripts**
+
+Add this script:
+
+```json
+"scripts": {
+  "temporal:test": "node ./src/temporal/testConnection.js"
+}
+```
+
+And create **testConnection.js**:
+
+`backend/src/temporal/testConnection.js`:
+
+```ts
+import { getTemporalClient } from "./temporalClient.js";
+
+(async () => {
+  try {
+    const client = await getTemporalClient();
+    console.log("Temporal client OK:", client.options.namespace);
+    process.exit(0);
+  } catch (err) {
+    console.error("Temporal test failed:", err);
+    process.exit(1);
+  }
+})();
+```
+
+---
+
+# **6. Create documentation file**
+
+Add:
+
+`/backend/docs/T7A_Temporal_Setup.md`
+
+Content:
+
+* How FiLot connects to Temporal Cloud
+* Environment variables
+* Namespaces
+* Test instructions
+
+(Use the content you summarised above.)
+
+---
+
+# **7. After completing everything, run the test**
+
+Agent must run:
+
+```
+npm run temporal:test
+```
+
+If Temporal connection succeeds, print:
+
+```
+Temporal client OK: filot-ocr
+```
+
+---
+
+# **ACCEPTANCE CRITERIA**
+
+Before you stop:
+
+✔ All dependencies installed
+✔ New temporal/ directory created
+✔ Client, workflow placeholders, exports done
+✔ ENV vars read correctly
+✔ Express health check endpoint added
+✔ Documentation exists
+✔ `npm run temporal:test` works
