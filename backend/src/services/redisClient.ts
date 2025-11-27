@@ -64,7 +64,8 @@ export function getRedisClient(): Redis {
     if (redisClient && isConnectionClosed) {
       try {
         redisClient.disconnect();
-      } catch {
+      } catch (_err) {
+        // Intentionally ignore disconnect errors during reconnection
       }
       redisClient = null;
     }
@@ -103,7 +104,8 @@ export function resetRedisConnection(): void {
   if (redisClient) {
     try {
       redisClient.disconnect();
-    } catch {
+    } catch (_err) {
+      // Intentionally ignore disconnect errors during reset
     }
     redisClient = null;
     isConnectionClosed = true;
