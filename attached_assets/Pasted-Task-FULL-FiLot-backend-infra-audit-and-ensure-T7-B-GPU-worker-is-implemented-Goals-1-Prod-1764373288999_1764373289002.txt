@@ -1,0 +1,98 @@
+Task: FULL FiLot backend + infra audit, and ensure T7-B (GPU worker) is implemented.
+
+Goals:
+1. Produce a comprehensive backend & infra audit (FILOT_FULL_SYSTEM_AUDIT.md).
+2. Verify whether Tranche T7-B (GPU OCR worker integration) exists and is deployed.
+   - If T7-B is missing or incomplete, implement T7-B following the project conventions, then produce TRANCHE_T7B_RESULT.md describing changes and deployment steps.
+3. Leave code working, do not break existing CPU OCR flow or frontend.
+
+Environment / Constraints:
+- Use existing repo in Replit workspace.
+- Use Replit Secrets for credentials (do not print secrets).
+- Respect 25-minute execution limits; if a single step is long, perform best-effort and mark remaining tasks in the report.
+- All changes must be committed and documented.
+
+Audit checklist (produce findings + remediation for each item):
+
+A. Repo & Code Health
+- TypeScript compile (tsc) and linter run.
+- List uncommitted changes.
+- Detect missing or failing unit tests.
+- Identify TODO/FIXME or insecure console logs.
+
+B. Database & Migrations
+- Verify Drizzle schema files and applied migrations.
+- Confirm `DATABASE_URL` works and migrations `npm run db:push` succeeded (or report error).
+- Check users/documents schemas and enum/migration consistency.
+
+C. Auth (Stack Auth/Neon)
+- Confirm JWKS URL, STACK_PROJECT_ID, STACK_SECRET_SERVER_KEY in secrets.
+- Verify `/auth/verify` and `/auth/refresh` endpoints behavior with test token flow (mock if necessary).
+- Validate middleware `authRequired` usage across protected routes.
+
+D. Storage (Cloudflare R2)
+- Confirm CF_* env variables exist.
+- Verify upload endpoint writes to R2 (dry-run check if network allowed).
+- Check whether public object URLs are used; if so flag and recommend presigned URL or proxy.
+
+E. OCR Pipeline & Tesseract
+- Confirm Tesseract installed and node wrapper available.
+- Verify OCR service (`tesseractService.ts`) exists and can run on a local sample image (use sample in repo or create tiny test).
+- Report languages available.
+
+F. Documents Queue & Processing
+- Evaluate current queue implementation (in-memory vs Redis/Temporal).
+- If in-memory: flag persistence risk and recommend Temporal/Redis.
+- Confirm `/documents/:id/process` and `/documents/:id/result` endpoints.
+
+G. Redis & Temporal
+- Check Redis connectivity using secrets.
+- Check Temporal namespace, workers, and workflows are registered.
+- Validate that Temporal connection (namespace) and task queue names appear in config.
+
+H. T7-B (GPU OCR Worker) verification
+- Detect presence of `src/workers/ocr-gpu-worker.ts`, `Dockerfile.gpu`, ECS task JSON, deploy scripts.
+- If present: run unit smoke checks (static analysis, Docker build dry-run).
+- If absent or incomplete: implement T7-B as follows (best-effort within time):
+  1. Add `src/workers/ocr-gpu-worker.ts` (Redis consumer + S3/R2 download + OCR runner + result publish).
+  2. Add `Dockerfile.gpu` (NVIDIA CUDA base, install OCR runtime).
+  3. Add `infra/ecs/task-ocr-gpu.json` (GPU device config).
+  4. Add `scripts/deploy-ocr-gpu.sh` (build/push to ECR, register task).
+  5. Add feature flag envs to `.env.example`.
+  Commit changes and note any manual steps required (ECR credentials, AWS IAM roles).
+
+I. ECS / ECR / AutoScaling
+- Confirm ECR repo exists and image naming expected.
+- Check ECS cluster/service/task def artifacts presence.
+- If Terraform/CloudFormation present, validate templates.
+
+J. Security & Ops
+- Detect open CORS or missing rate-limiter.
+- Look for public R2 objects containing PII; recommend presigned URLs.
+- Validate internal endpoints (e.g., `/internal/*`) require service key / mTLS.
+- Check secrets usage and ensure none are committed.
+
+Deliverables (files to create in repo root):
+1. `FILOT_FULL_SYSTEM_AUDIT.md` — single unified audit document with:
+   - Executive summary
+   - Findings (severity + explanation)
+   - Actionable remediation checklist (P0/P1/P2)
+   - Exact commands run & their outputs (trim sensitive outputs)
+2. `TRANCHE_T7B_RESULT.md` — only if T7-B was implemented or changed:
+   - Files added/changed
+   - How to build & deploy GPU worker (commands)
+   - Any manual steps remaining (ECR push, AWS role attachments)
+   - Smoke-test results (logs, curl endpoints)
+3. Commit any code changes in a new branch: `t7b/ocr-gpu-integration` and push.
+
+Testing:
+- Run `pnpm build` and `pnpm test` (or `npm` if project uses npm). Capture failures.
+- If possible, run minimal Docker build for `Dockerfile.gpu` (use `docker build --no-cache` or `docker buildx`), but if Replit lacks Docker support, note manual build steps.
+- Check Redis and Temporal connectivity (ping endpoints), but do not create destructive operations.
+
+Reporting rules:
+- Keep output concise.
+- If a step cannot be completed due to permissions (AWS/ECR/Terraform), log exact blocking step and required manual commands.
+- Do NOT print secret values. Reference secret names only.
+
+Start now. Produce `FILOT_FULL_SYSTEM_AUDIT.md` and `TRANCHE_T7B_RESULT.md` (if applicable). Report back final status and next recommended tranche (T7-C / T7-D).
