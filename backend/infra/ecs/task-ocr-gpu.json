@@ -1,0 +1,182 @@
+{
+  "family": "filot-ocr-gpu-worker",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/filot-ecs-task-role",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "cpu": "2048",
+  "memory": "8192",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "filot-ocr-gpu-worker",
+      "image": "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}",
+      "essential": true,
+      "cpu": 2048,
+      "memory": 8192,
+      "memoryReservation": 4096,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "OCR_GPU_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "OCR_GPU_CONCURRENCY",
+          "value": "4"
+        },
+        {
+          "name": "OCR_GPU_POLL_INTERVAL",
+          "value": "500"
+        },
+        {
+          "name": "OCR_GPU_AUTOFALLBACK",
+          "value": "true"
+        },
+        {
+          "name": "NVIDIA_VISIBLE_DEVICES",
+          "value": "all"
+        },
+        {
+          "name": "NVIDIA_DRIVER_CAPABILITIES",
+          "value": "compute,utility"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/database-url"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/redis-url"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/redis-password"
+        },
+        {
+          "name": "CF_R2_ENDPOINT",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/cf-r2-endpoint"
+        },
+        {
+          "name": "CF_R2_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/cf-r2-access-key"
+        },
+        {
+          "name": "CF_R2_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/cf-r2-secret-key"
+        },
+        {
+          "name": "CF_R2_BUCKET_NAME",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/cf-r2-bucket"
+        },
+        {
+          "name": "BULI2_API_URL",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/buli2-api-url"
+        },
+        {
+          "name": "BULI2_CALLBACK_URL",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:filot/buli2-callback-url"
+        }
+      ],
+      "resourceRequirements": [
+        {
+          "type": "GPU",
+          "value": "1"
+        }
+      ],
+      "linuxParameters": {
+        "devices": [
+          {
+            "hostPath": "/dev/nvidia0",
+            "containerPath": "/dev/nvidia0",
+            "permissions": ["read", "write"]
+          },
+          {
+            "hostPath": "/dev/nvidiactl",
+            "containerPath": "/dev/nvidiactl",
+            "permissions": ["read", "write"]
+          },
+          {
+            "hostPath": "/dev/nvidia-uvm",
+            "containerPath": "/dev/nvidia-uvm",
+            "permissions": ["read", "write"]
+          }
+        ],
+        "sharedMemorySize": 2048,
+        "tmpfs": [
+          {
+            "containerPath": "/tmp/gpu-ocr",
+            "size": 1024,
+            "mountOptions": ["rw", "noexec", "nosuid"]
+          }
+        ]
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/filot-ocr-gpu-worker",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65535,
+          "hardLimit": 65535
+        },
+        {
+          "name": "memlock",
+          "softLimit": -1,
+          "hardLimit": -1
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": []
+    }
+  ],
+  "volumes": [],
+  "placementConstraints": [
+    {
+      "type": "memberOf",
+      "expression": "attribute:ecs.instance-type =~ g4dn.*"
+    }
+  ],
+  "tags": [
+    {
+      "key": "Project",
+      "value": "FiLot"
+    },
+    {
+      "key": "Component",
+      "value": "OCR-GPU-Worker"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    }
+  ]
+}
