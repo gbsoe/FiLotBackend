@@ -1,19 +1,43 @@
 # FiLot GPU OCR Worker - Dockerfile.gpu
 # NVIDIA CUDA base image with Tesseract OCR and Node.js runtime
+# Multi-stage build for optimal image size
 
+# Stage 1: Build stage
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Jakarta
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm ci
+
+COPY . .
+
+RUN npm run build
+
+# Stage 2: Production runtime
 FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
 
 LABEL maintainer="FiLot Team"
 LABEL description="GPU-accelerated OCR worker for FiLot document processing"
 LABEL version="1.0.0"
 
-# Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
-
-# Set timezone
 ENV TZ=Asia/Jakarta
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -26,50 +50,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libjpeg-dev \
     libtiff-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 20.x LTS
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Create non-root user for security
 RUN groupadd --gid 1000 filot \
     && useradd --uid 1000 --gid filot --shell /bin/bash --create-home filot
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files first for better layer caching
-COPY package*.json ./
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
-# Install dependencies
-RUN npm ci --only=production
+RUN mkdir -p /tmp/gpu-ocr && chown -R filot:filot /tmp/gpu-ocr /app
 
-# Copy application source
-COPY --chown=filot:filot . .
-
-# Build TypeScript
-RUN npm run build
-
-# Create temp directory for OCR processing
-RUN mkdir -p /tmp/gpu-ocr && chown filot:filot /tmp/gpu-ocr
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV OCR_GPU_ENABLED=true
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
-# Switch to non-root user
 USER filot
 
-# Expose port
 EXPOSE 8080
 
-# Start GPU worker
 CMD ["node", "dist/workers/ocr-gpu-worker.js"]

@@ -18,13 +18,6 @@
       "cpu": 2048,
       "memory": 8192,
       "memoryReservation": 4096,
-      "portMappings": [
-        {
-          "containerPort": 8080,
-          "hostPort": 8080,
-          "protocol": "tcp"
-        }
-      ],
       "environment": [
         {
           "name": "NODE_ENV",
@@ -47,12 +40,8 @@
           "value": "true"
         },
         {
-          "name": "NVIDIA_VISIBLE_DEVICES",
-          "value": "all"
-        },
-        {
-          "name": "NVIDIA_DRIVER_CAPABILITIES",
-          "value": "compute,utility"
+          "name": "OCR_GPU_MAX_RETRIES",
+          "value": "3"
         }
       ],
       "secrets": [
@@ -100,47 +89,15 @@
         }
       ],
       "linuxParameters": {
-        "devices": [
-          {
-            "hostPath": "/dev/nvidia0",
-            "containerPath": "/dev/nvidia0",
-            "permissions": ["read", "write"]
-          },
-          {
-            "hostPath": "/dev/nvidiactl",
-            "containerPath": "/dev/nvidiactl",
-            "permissions": ["read", "write"]
-          },
-          {
-            "hostPath": "/dev/nvidia-uvm",
-            "containerPath": "/dev/nvidia-uvm",
-            "permissions": ["read", "write"]
-          }
-        ],
-        "sharedMemorySize": 2048,
-        "tmpfs": [
-          {
-            "containerPath": "/tmp/gpu-ocr",
-            "size": 1024,
-            "mountOptions": ["rw", "noexec", "nosuid"]
-          }
-        ]
+        "sharedMemorySize": 2048
       },
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/filot-ocr-gpu-worker",
           "awslogs-region": "${AWS_REGION}",
-          "awslogs-stream-prefix": "ecs",
-          "awslogs-create-group": "true"
+          "awslogs-stream-prefix": "ecs"
         }
-      },
-      "healthCheck": {
-        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
-        "interval": 30,
-        "timeout": 10,
-        "retries": 3,
-        "startPeriod": 60
       },
       "ulimits": [
         {
