@@ -86,7 +86,31 @@ Combines AI-powered scoring with manual review capabilities:
 
 ## Recent Changes
 
-### T7-D Full System Testing (Latest)
+### T7-E/T7-F Production Hardening (Latest)
+Tranche T7-E and T7-F implement complete production hardening for the FiLot backend:
+
+- **Cloud Observability** (`backend/src/utils/metrics.ts`):
+  - CloudWatch EMF-compatible metrics emitter
+  - System metrics tracking (queue depths, GPU status, BULI2 retry counts)
+  - Automatic metric batching and flushing
+
+- **Monitoring Endpoint** (`GET /metrics`):
+  - Real-time system health and queue statistics
+  - GPU worker status and active job counts
+  - Circuit breaker states
+
+- **Production Documentation**:
+  - `FiLot_PRODUCTION_CHECKLIST.md` - Deployment checklist
+  - `T7F_production_readiness_report.md` - Readiness assessment
+  - `T7E_T7F_FINAL_SUMMARY.md` - Complete summary
+  - Updated `README.md` with production deployment guide
+
+- **Environment Configuration**:
+  - Updated `.env.example` with all required variables
+  - Metrics configuration variables added
+  - GPU stuck job recovery settings documented
+
+### T7-D Full System Testing
 Tranche T7-D implements comprehensive testing infrastructure for the complete OCR pipeline:
 
 - **Test Suites** (`backend/tests/`):
