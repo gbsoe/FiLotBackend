@@ -430,7 +430,7 @@ async function pollLoop(): Promise<void> {
       }
       
       const jobPromise = processJob(documentId);
-      workerState.activeJobs.set(documentId, jobPromise as Promise<GPUOCRResult>);
+      workerState.activeJobs.set(documentId, jobPromise as unknown as Promise<GPUOCRResult>);
     }
   } catch (error) {
     logger.error("GPU worker poll loop error", {

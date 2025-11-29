@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Configuration
-AWS_REGION="${AWS_REGION:-ap-southeast-1}"
+AWS_REGION="${AWS_REGION:-ap-southeast-2}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 ECR_REPOSITORY="${ECR_REPOSITORY:-filot-ocr-gpu-worker}"
 ECS_CLUSTER="${ECS_CLUSTER:-filot-production}"
