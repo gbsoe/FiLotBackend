@@ -53,6 +53,8 @@ All system tests for the FiLot OCR processing pipeline have been implemented and
 | Path 3: Max Retries | Retry count tracked → fail flag set after max retries | ✅ PASS |
 | Path 4: Signal/Query | Signal handling, state queries, multiple signals | ✅ PASS |
 
+**Note:** Tests use deterministic scoring (configurable `fixedScore` parameter, default 90) to ensure consistent test outcomes.
+
 ### 4. End-to-End OCR Tests
 **File:** `backend/tests/e2e/ocr-end-to-end.test.ts`
 
