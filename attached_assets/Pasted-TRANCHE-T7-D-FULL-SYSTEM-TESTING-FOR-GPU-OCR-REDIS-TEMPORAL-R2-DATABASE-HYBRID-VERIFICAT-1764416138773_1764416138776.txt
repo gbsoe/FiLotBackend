@@ -1,0 +1,283 @@
+TRANCHE T7-D — FULL SYSTEM TESTING FOR GPU OCR + REDIS + TEMPORAL + R2 + DATABASE + HYBRID VERIFICATION
+
+You must now implement **complete end-to-end system testing** for FiLot, covering all components introduced in T7-A, T7-B, and T7-C.
+
+This tranche is focused on **verification**, not new features.
+
+Follow these instructions exactly:
+
+---
+
+# **1. Verify all environment variables exist**
+
+Check the repository for missing ENV variables.
+
+Ensure `.env.example` and code references include:
+
+### Redis Queue
+
+* `REDIS_URL`
+* `REDIS_PASSWORD`
+* `OCR_GPU_QUEUE_KEY`
+* `OCR_GPU_PROCESSING_KEY`
+* `OCR_GPU_ATTEMPTS_KEY`
+* `OCR_GPU_PUBLISH_CHANNEL`
+
+### GPU Worker
+
+* `OCR_GPU_ENABLED`
+* `OCR_GPU_CONCURRENCY`
+* `OCR_GPU_AUTOFALLBACK`
+* `OCR_GPU_MAX_RETRIES`
+* `OCR_GPU_POLL_INTERVAL`
+
+### Temporal
+
+* `TEMPORAL_ADDRESS`
+* `TEMPORAL_NAMESPACE`
+
+### Cloudflare R2
+
+* `CF_R2_ENDPOINT`
+* `CF_R2_ACCESS_KEY_ID`
+* `CF_R2_SECRET_ACCESS_KEY`
+* `CF_R2_BUCKET_NAME`
+
+### Database
+
+* `DATABASE_URL`
+
+### BULI2
+
+* `BULI2_API_URL`
+* `BULI2_CALLBACK_URL`
+
+🟢 If anything is missing, update `.env.example` and patch the code.
+
+---
+
+# **2. Implement Redis Queue Test Suite**
+
+Create:
+
+```
+backend/tests/redis/queue.test.ts
+```
+
+Tests must verify:
+
+### Queue operations:
+
+* enqueue → dequeue
+* processing set add/remove
+* attempts counter increments
+* pub/sub message delivery
+
+### Failure handling:
+
+* corrupted JSON payload
+* lost connection simulation
+* retry logic up to `OCR_GPU_MAX_RETRIES`
+
+Use Jest.
+
+---
+
+# **3. Mock GPU Worker for Test Environment**
+
+Since Replit cannot use NVIDIA GPU:
+
+Create:
+
+```
+src/workers/__mocks__/gpu-worker-mock.ts
+```
+
+Mock must simulate:
+
+* GPU available → fast OCR text return
+* GPU unavailable → CPU fallback
+* GPU failure → retry and fallback logic
+* GPU processing time simulation
+* GPU true/false flag identical to real worker
+
+Then update tests to import mock when:
+
+```
+process.env.NODE_ENV === "test"
+```
+
+---
+
+# **4. Build Temporal Workflow Tests**
+
+Create:
+
+```
+backend/tests/temporal/ocr-workflow.test.ts
+```
+
+Test:
+
+### Workflow path 1 — GPU success
+
+document → GPU OCR → parser → score → hybrid decision → DB update → BULI2 callback
+
+### Workflow path 2 — GPU failure + fallback to CPU
+
+### Workflow path 3 — max retries hit → fail flag set
+
+### Workflow path 4 — signal/query calls work
+
+---
+
+# **5. Create Full ECS Runtime Simulation Script**
+
+This must simulate how **AWS ECS GPU Worker** behaves.
+
+Create:
+
+```
+scripts/simulate-ecs-runtime.ts
+```
+
+Simulate:
+
+1. pulling job from Redis queue
+2. downloading fake document from mock R2
+3. passing through GPU mock
+4. publishing result on pub/sub
+5. updating the database
+6. invoking Temporal workflow
+7. invoking hybrid verification
+8. emitting final decision
+
+The simulation acts as “offline ECS testing”.
+
+---
+
+# **6. Create End-to-End OCR Test (Fake Image)**
+
+Create:
+
+```
+backend/tests/e2e/ocr-end-to-end.test.ts
+```
+
+Simulate:
+
+* Fake KTP/NPWP image upload
+* Store in mock R2
+* Push job to GPU queue
+* GPU mock outputs OCR text
+* Parser extracts fields:
+
+  * nik
+  * nama
+  * ttl
+  * alamat
+  * gender
+* Scoring model generates score
+* Decision engine outputs:
+
+  * APPROVE
+  * REVIEW
+  * REJECT
+* Database updated
+* BULI2 callback simulated
+
+Test must fail if **ANY step breaks**.
+
+---
+
+# **7. Create Unified “Full System Test Runner”**
+
+Create:
+
+```
+scripts/run-full-system-test.ts
+```
+
+Running this script must print:
+
+### Redis
+
+✓ queue works
+✓ processing set
+✓ pub/sub
+✓ retry
+
+### GPU Worker
+
+✓ gpu success path
+✓ fallback path
+✓ retry path
+
+### Temporal
+
+✓ workflow executed
+✓ signals
+✓ retry rules
+
+### E2E Pipeline
+
+✓ ocr → parser → score → decision → db → callback
+
+If any fail → print clear error.
+
+---
+
+# **8. Produce Final T7-D System Test Report**
+
+Generate:
+
+```
+docs/T7D_SYSTEM_TEST_REPORT.md
+```
+
+Contents:
+
+* Summary of all tests implemented
+* Which passed
+* Which failed
+* Recommendations
+* Confirmation system is ready for ECS GPU processing
+* Any missing secrets / environment mismatches found
+
+---
+
+# **OUTPUT REQUIREMENTS**
+
+When executing this tranche, you MUST:
+
+### ✔ Create all test files
+
+### ✔ Create mocks
+
+### ✔ Create simulation scripts
+
+### ✔ Update env example
+
+### ✔ Run all tests
+
+### ✔ Fix failing tests until green
+
+### ✔ Produce final T7-D report
+
+No code should be left incomplete.
+
+---
+
+# **END OF OFFICIAL T7-D PROMPT**
+
+---
+
+If you'd like, I can also prepare:
+
+### 🔜 **T7-E — ECS Health + GPU Autoscaling Audit**
+
+### 🔜 **T7-F — Docs Processing Benchmarking + Worker Load Testing**
+
+### 🔜 **T7-G — OCR Scoring Model v2**
+
+Just say **“Proceed T7-E”** when ready.
