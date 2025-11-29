@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { authRequired } from "../auth/middleware";
 import { sensitiveRateLimiter } from "../middlewares/rateLimiter";
 import { db } from "../db";
@@ -9,23 +9,46 @@ import { computeScoreAndDecision } from "../services/aiScoring";
 import { forwardReview } from "../services/forwardToBuli2";
 import { escalateToBuli2 } from "../buli2/escalationService";
 import { logger } from "../utils/logger";
+import { EvaluateDocumentSchema } from "../validators/schemas";
 
 const router = Router();
 
 const BULI2_CALLBACK_URL = process.env.BULI2_CALLBACK_URL || "";
 
-router.post("/evaluate", authRequired, sensitiveRateLimiter, async (req: Request, res: Response) => {
+const validateEvaluateDocument = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const result = EvaluateDocumentSchema.safeParse(req.body);
+
+  if (!result.success) {
+    const errors = result.error.errors.map((err) => ({
+      field: err.path.join("."),
+      message: err.message,
+    }));
+
+    res.status(400).json({
+      success: false,
+      error: {
+        message: "Validation failed",
+        details: errors,
+      },
+    });
+    return;
+  }
+
+  req.body = result.data;
+  next();
+};
+
+router.post("/evaluate", authRequired, sensitiveRateLimiter, validateEvaluateDocument, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const { documentId } = req.body;
-
-    if (!documentId) {
-      return res.status(400).json({ error: "documentId is required" });
-    }
-
     const userId = req.user.id;
 
     const [document] = await db
@@ -313,7 +336,9 @@ router.post("/:documentId/escalate", authRequired, sensitiveRateLimiter, async (
       });
     }
 
-    const parsedData = typeof document.resultJson === "object" ? document.resultJson : {};
+    const parsedData = (typeof document.resultJson === "object" && document.resultJson !== null) 
+      ? document.resultJson as Record<string, unknown>
+      : {};
     const score = document.aiScore || 0;
 
     const escalationResult = await escalateToBuli2(document, parsedData, score);

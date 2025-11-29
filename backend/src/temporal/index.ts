@@ -6,11 +6,21 @@ export * from "./workflowsStub";
 export {
   TemporalClientConfig,
   TemporalConnectionStatus,
+  StartWorkflowResult,
+  SignalWorkflowResult,
+  CancelWorkflowResult,
+  WorkflowStateResult,
   getTemporalConfig,
   isTemporalConfigured,
   createTemporalClient,
+  getTemporalClient,
   getConnectionStatus,
   closeTemporalClient,
+  startKYCWorkflow,
+  completeManualReviewWorkflow,
+  failReviewWorkflow,
+  getWorkflowState,
+  waitForWorkflowCompletion,
 } from "./client";
 
 export {

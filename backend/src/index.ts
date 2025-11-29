@@ -6,8 +6,15 @@ import { validateServiceKeyAtStartup } from './middlewares/serviceKeyAuth';
 import { recoverStuckDocuments } from './workers/startupRecovery';
 import { isRedisHealthy, closeRedisConnection } from './services/redisClient';
 import { getConfiguredQueueEngine, isTemporalConfigured, isAutoFallbackEnabled } from './queue';
+import { validateAndLogEnvironment } from './config/envValidation';
 
 const startServer = async (): Promise<void> => {
+  const envValid = validateAndLogEnvironment();
+  if (!envValid) {
+    logger.error('Environment validation failed. Exiting.');
+    process.exit(1);
+  }
+  
   validateServiceKeyAtStartup();
   
   const configuredEngine = getConfiguredQueueEngine();
