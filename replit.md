@@ -37,6 +37,15 @@ ESLint, Prettier, and strict TypeScript compiler flags enforce high code quality
 - Integrates Tesseract OCR for Indonesian document processing (KTP/NPWP).
 - Features an asynchronous processing pipeline with Redis-based or Temporal-based queuing.
 
+### GPU OCR Worker (T7-B)
+The system supports GPU-accelerated OCR processing for high-performance document handling:
+- **GPU Queue**: Separate Redis queue (`filot:ocr:gpu:queue`) for GPU processing jobs.
+- **CUDA Support**: Uses NVIDIA CUDA 12.2 runtime with Tesseract OCR.
+- **Auto Fallback**: Automatically falls back to CPU processing when GPU is unavailable.
+- **Retry Logic**: Configurable retry attempts with automatic requeuing.
+- **Pub/Sub Results**: Results published to `filot:ocr:gpu:results` channel.
+- **ECS Deployment**: Docker image and ECS task definition for AWS deployment on g4dn.* instances.
+
 ### Hybrid Verification System
 Combines AI-powered scoring with manual review capabilities:
 - **AI Scoring Engine**: Computes confidence scores (0-100) for KTP/NPWP based on completeness and format validation.
@@ -74,3 +83,26 @@ Combines AI-powered scoring with manual review capabilities:
 - **Temporal Cloud**: For durable workflow execution (future KYC review process).
 - **FiLot DeFi API**: For decentralized finance operations.
 - **Project Alpha API**: For additional financial services.
+
+## Recent Changes
+
+### T7-B GPU OCR Worker (Latest)
+- Implemented GPU-accelerated OCR worker with Redis queue consumer
+- Added CUDA-enabled Dockerfile (`backend/Dockerfile.gpu`)
+- Created ECS deployment script (`backend/scripts/deploy-ocr-gpu.sh`) for ap-southeast-2
+- Added ECS task definition with GPU requirements (`backend/infra/ecs/task-ocr-gpu.json`)
+- Integrated with hybrid verification system
+- Added CPU fallback support with configurable retry logic
+- Full documentation at `backend/docs/T7B_GPU_OCR_WORKER.md`
+
+## GPU Worker Environment Variables
+```
+OCR_GPU_ENABLED=false
+OCR_GPU_CONCURRENCY=2
+OCR_GPU_POLL_INTERVAL=1000
+OCR_GPU_AUTOFALLBACK=true
+OCR_GPU_MAX_RETRIES=3
+OCR_GPU_QUEUE_KEY=filot:ocr:gpu:queue
+OCR_GPU_PROCESSING_KEY=filot:ocr:gpu:processing
+OCR_GPU_PUBLISH_CHANNEL=filot:ocr:gpu:results
+```

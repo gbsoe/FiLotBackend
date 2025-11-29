@@ -83,6 +83,19 @@ npm test
 | `AI_SCORE_THRESHOLD_AUTO_APPROVE` | Score threshold for auto-approval (default: 85) |
 | `AI_SCORE_THRESHOLD_AUTO_REJECT` | Score threshold for auto-rejection (default: 35) |
 
+### GPU OCR Worker (T7-B)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OCR_GPU_ENABLED` | `false` | Enable GPU OCR processing |
+| `OCR_GPU_CONCURRENCY` | `2` | Number of concurrent GPU jobs |
+| `OCR_GPU_POLL_INTERVAL` | `1000` | Queue poll interval (ms) |
+| `OCR_GPU_AUTOFALLBACK` | `true` | Auto-fallback to CPU if GPU unavailable |
+| `OCR_GPU_MAX_RETRIES` | `3` | Max retry attempts per document |
+| `OCR_GPU_QUEUE_KEY` | `filot:ocr:gpu:queue` | Redis queue key |
+| `OCR_GPU_PROCESSING_KEY` | `filot:ocr:gpu:processing` | Redis processing set key |
+| `OCR_GPU_PUBLISH_CHANNEL` | `filot:ocr:gpu:results` | Redis Pub/Sub channel |
+
 ## OCR Engine Modes
 
 ### Redis Mode (Default)
@@ -112,6 +125,31 @@ npm run dev
 When Temporal is not configured but `OCR_ENGINE=temporal`:
 - If `OCR_AUTOFALLBACK=true` (default): Falls back to Redis
 - If `OCR_AUTOFALLBACK=false`: Server refuses to start with error
+
+### GPU Mode (T7-B)
+
+For high-performance OCR processing with NVIDIA GPU acceleration:
+
+```bash
+# Enable GPU processing (requires CUDA-enabled hardware)
+export OCR_GPU_ENABLED=true
+export OCR_GPU_CONCURRENCY=4
+npm run dev
+```
+
+GPU mode features:
+- CUDA-accelerated Tesseract OCR
+- Separate Redis queue for GPU jobs
+- Automatic CPU fallback if GPU unavailable
+- Configurable retry logic
+- Pub/Sub result notifications
+
+For production deployment, use the GPU Docker image:
+```bash
+./scripts/deploy-ocr-gpu.sh all
+```
+
+See [T7-B GPU OCR Worker Documentation](./docs/T7B_GPU_OCR_WORKER.md) for details.
 
 ## API Endpoints
 
@@ -169,6 +207,8 @@ backend/
 
 ## Documentation
 
+- [T7-B GPU OCR Worker](./docs/T7B_GPU_OCR_WORKER.md)
+- [T7-A Temporal Setup](./docs/T7A_Temporal_Setup.md)
 - [T6.D Temporal Preparation](./docs/TRANCHE_T6.D.md)
 - [T6.C Redis Queue Pipeline](./docs/T6C_REDIS_QUEUE_PIPELINE.md)
 - [T6.B Security Patch](./docs/T6B_BACKEND_SECURITY_PATCH.md)
