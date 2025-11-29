@@ -1,0 +1,117 @@
+# 🚀 TRANCHE T7-B — GPU OCR WORKER IMPLEMENTATION (RE-RUN CLEAN)
+# This prompt reinstalls, fixes, and finalizes ALL code required for GPU OCR worker support.
+
+# --------------------------------------------------------------------
+# 0. PREPARATION — READ AUDIT + EXISTING FILES
+# --------------------------------------------------------------------
+# Before changes, print summary of:
+# - existing backend/src/workers/ocr-gpu-worker.ts
+# - backend/Dockerfile.gpu
+# - backend/scripts/deploy-ocr-gpu.sh
+# - backend/infra/ecs/task-ocr-gpu.json
+# This ensures the agent does not duplicate work or break the code.
+
+READ:
+backend/src/workers/ocr-gpu-worker.ts
+backend/Dockerfile.gpu
+backend/scripts/deploy-ocr-gpu.sh
+backend/infra/ecs/task-ocr-gpu.json
+backend/.env.example
+
+# --------------------------------------------------------------------
+# 1. REPAIR / REGENERATE GPU WORKER (TS)
+# --------------------------------------------------------------------
+# Recreate the GPU worker cleanly using the official T7-B specification:
+# - Redis GPU queue consumer
+# - enqueueForGPU, dequeueFromGPU
+# - processDocumentGPU()
+# - auto GPU detection (process.env.OCR_GPU_ENABLED === 'true')
+# - CPU fallback
+# - Pub/Sub channel: filot:ocr:gpu:results
+# - Logging + structured errors
+# - Export: startGPUWorker, stopGPUWorker, getGPUWorkerStatus, isGPUEnabled
+
+REPLACE FILE backend/src/workers/ocr-gpu-worker.ts WITH CONTENT BASED ON T7-B REPORT.
+
+# --------------------------------------------------------------------
+# 2. FIX / RECREATE DOCKERFILE (CUDA)
+# --------------------------------------------------------------------
+# Recreate Dockerfile.gpu exactly as per T7-B documentation:
+# Base image: nvidia/cuda:12.2.0-runtime-ubuntu22.04
+# Install:
+# - nodejs 20
+# - tesseract + ind+eng
+# - minimal dependencies
+# - app root at /app
+# - USER filot (non-root)
+# - HEALTHCHECK port 8080
+# The Replit environment cannot build GPU images but the Dockerfile must exist cleanly.
+
+REPLACE FILE backend/Dockerfile.gpu WITH CORRECT VERSION PER T7-B SPECS.
+
+# --------------------------------------------------------------------
+# 3. FIX DEPLOY SCRIPT (deploy-ocr-gpu.sh)
+# --------------------------------------------------------------------
+# Regenerate deploy script with:
+# ./deploy-ocr-gpu.sh build     → docker build
+# ./deploy-ocr-gpu.sh push      → push to ECR
+# ./deploy-ocr-gpu.sh deploy    → register task + update service
+# ./deploy-ocr-gpu.sh all       → build + push + deploy
+# Must accept ECR repo URL as ENV.
+
+REGENERATE backend/scripts/deploy-ocr-gpu.sh
+Ensure:
+- chmod +x automatically set by agent
+- uses region ap-southeast-2
+- uses task-definition JSON in backend/infra/ecs/
+
+# --------------------------------------------------------------------
+# 4. FIX / REBUILD ECS TASK DEFINITION JSON
+# --------------------------------------------------------------------
+# Create backend/infra/ecs/task-ocr-gpu.json with:
+# - gpu: 1
+# - cpu: 2048
+# - memory: 8192
+# - executionRoleArn + taskRoleArn placeholders
+# - container name: filot-ocr-gpu-worker
+# - log group /ecs/filot-ocr-gpu-worker
+# - redis + DB + R2 secrets pulled from Secrets Manager (placeholders)
+
+REPLACE backend/infra/ecs/task-ocr-gpu.json WITH CLEAN VERSION.
+
+# --------------------------------------------------------------------
+# 5. UPDATE .env.example
+# --------------------------------------------------------------------
+# Insert all GPU-related environment variables:
+
+# OCR_GPU_ENABLED=false
+# OCR_GPU_CONCURRENCY=2
+# OCR_GPU_POLL_INTERVAL=1000
+# OCR_GPU_AUTOFALLBACK=true
+# OCR_GPU_QUEUE_KEY=filot:ocr:gpu:queue
+# OCR_GPU_PROCESSING_KEY=filot:ocr:gpu:processing
+# OCR_GPU_PUBLISH_CHANNEL=filot:ocr:gpu:results
+
+INSERT OR FIX THESE KEYS IN backend/.env.example
+
+# --------------------------------------------------------------------
+# 6. TYPE CHECK + LINT FIX
+# --------------------------------------------------------------------
+RUN:
+npm install
+npm run build
+npm run lint --fix
+
+# Print ALL errors so developer sees unresolved issues.
+
+# --------------------------------------------------------------------
+# 7. PRINT SUMMARY REPORT
+# --------------------------------------------------------------------
+# After implementing everything, generate a summary with:
+# - Files created
+# - Files updated
+# - New exports added
+# - Any TODOs
+# - Any warnings
+
+PRINT A CLEAR FINAL REPORT.
