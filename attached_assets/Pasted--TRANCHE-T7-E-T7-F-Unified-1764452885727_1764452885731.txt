@@ -1,0 +1,176 @@
+# ┌─────────────────────────────────────────────────────────────┐
+# │   TRANCHE T7-E + T7-F (Unified) — PRODUCTION HARDENING       │
+# │   Make FiLot backend & GPU pipeline fully production-ready    │
+# └─────────────────────────────────────────────────────────────┘
+
+You are the FiLot engineering agent. Perform ALL steps below in order.
+This tranche must result in a **production-ready system**, no mocks,
+no missing env vars, no insecure defaults, no loose error paths, and
+no non-deterministic behavior.
+
+===============================================================
+1. PRODUCTION ENVIRONMENT VALIDATION
+===============================================================
+Audit the entire backend codebase and ensure:
+
+- All environment variables used are declared in:
+    - `.env.example`
+    - backend code (`process.env.*`)
+    - deployment scripts
+- Remove any unused, dead, or duplicate env vars.
+- Verify all required Production secrets are present:
+    - `filot/database-url`
+    - `filot/redis-url`
+    - `filot/redis-password`
+    - Cloudflare R2 full credential set
+    - BULI2 API URL + API key
+    - OCR GPU environment flags
+- Validate database URL formatting
+- Validate Redis URL scheme (`redis://` or `rediss://`)
+- Validate all integrations handle missing env vars with clear errors.
+
+Output:
+- `T7E_env_audit.md`
+
+===============================================================
+2. SECURITY HARDENING (FULL PRODUCTION)
+===============================================================
+Apply security enhancements:
+
+### API Security
+- Ensure **all sensitive routes require JWT auth**.
+- Confirm **document upload**, **processing**, **verification**,  
+  **internal review endpoints**, and **BULI2 callbacks** are protected.
+- Add rate limiting middleware for:
+    - `/documents/upload`
+    - `/verification/*`
+- Add payload size limits.
+- Add full schema validation (Zod) to all request bodies.
+
+### Secrets & Logging
+- Ensure no secrets ever appear in logs.
+- Mask sensitive fields (`npwp`, `nik`) in logs.
+- Remove stack traces from production responses; keep in dev only.
+
+### File Handling
+- Validate MIME types strictly (KTP/NPWP only).
+- Enforce max file size (2 MB or what backend allows).
+- Ensure temporary files are deleted on failure.
+
+Output:
+- `T7E_security_report.md`
+- Updated backend code commits.
+
+===============================================================
+3. GPU WORKER → BACKEND → REDIS → DB INTEGRITY CHECK
+===============================================================
+End-to-end audit of the GPU pipeline:
+
+### Queue Consistency
+- Ensure worker always removes job from `processing` set even if crash.
+- Implement automatic stuck-job reaper.
+- Add correlation IDs and trace logs.
+
+### Race Conditions
+- Ensure duplicate processing of same document cannot happen.
+- Ensure fallback-to-CPU still writes `gpuProcessed=false`.
+
+### Database
+- Ensure document transitions:
+    - `uploaded` → `processing` → 
+      `ocr_completed` → `ai_evaluated` →  
+      (`auto_approve` | `auto_reject` | `needs_review`)
+- Add DB constraints where missing.
+
+Output:
+- `T7E_gpu_integrity_report.md`
+
+===============================================================
+4. TEMPORAL WORKFLOWS — FINALIZE FOR PRODUCTION
+===============================================================
+- Finalize workflow definitions.
+- Ensure:
+    - `startKYCWorkflow`
+    - `completeManualReviewWorkflow`
+    - `failReviewWorkflow`
+  all work deterministically.
+- Ensure all activities use Typed Params + Typed Returns.
+- Add timeouts + retries to all activities.
+- Add workflow versioning.
+
+Output:
+- Updated files in `/backend/src/temporal/`
+- `T7E_temporal_finalization.md`
+
+===============================================================
+5. BULI2 INTEGRATION — PRODUCTION HARDENING
+===============================================================
+Upgrade FiLot ↔ BULI2 integration:
+
+### Outbound (FiLot → BULI2)
+- Confirm retry policy (exponential backoff)
+- Add circuit breaker
+- Add structured logs with `review_id`, `document_id`
+
+### Inbound (BULI2 → FiLot)
+- Validate signature (HMAC or static API key)
+- Validate payload (Zod)
+- Ensure correct document status transitions.
+
+Output:
+- `T7E_buli2_final_report.md`
+
+===============================================================
+6. CLOUD OBSERVABILITY & MONITORING
+===============================================================
+Add:
+
+### CloudWatch
+- GPU worker log group `/ecs/filot-ocr-gpu-worker`
+- Add log event for each:
+    - queue pull
+    - processing done
+    - fallback event
+    - AI evaluation done
+    - BULI2 forward
+
+### Metrics
+Produce metrics emitter:
+
+- `filot.queue_length`
+- `filot.gpu.active_jobs`
+- `filot.gpu.processing_time_ms`
+- `filot.verification.latency_ms`
+- `filot.buli2.retry_count`
+
+Output:
+- `T7E_monitoring_report.md`
+
+===============================================================
+7. FINAL PRODUCTION BUILD + CLEANUP
+===============================================================
+Perform:
+
+- Full CI build test
+- Remove unused files, mocks, test code
+- Update README for production
+- Produce:
+    - Production `.env.example`
+    - Full deployment checklist
+    - Final architecture diagram update
+
+Output:
+- `T7F_production_readiness_report.md`
+- `FiLot_PRODUCTION_CHECKLIST.md`
+
+===============================================================
+8. FINAL SUMMARY OUTPUT
+===============================================================
+Produce:
+
+- `T7E_T7F_FINAL_SUMMARY.md`  
+  Containing:
+  - What changed  
+  - What was hardened  
+  - What remains  
+  - System is now production-ready confirmation  
