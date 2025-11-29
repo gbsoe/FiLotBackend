@@ -1,0 +1,263 @@
+PROMPT FOR REPLIT AGENT — TRANCHE T7-C
+
+You are now executing **Tranche T7-C** of the FiLot Backend roadmap.
+
+Your goal is to **deploy the GPU OCR Worker** to AWS ECS using FiLot’s infrastructure.
+
+Follow this checklist strictly and produce artifacts exactly in the listed directories.
+
+---
+
+# ==========================================
+
+# ✅ **1. VALIDATE REPOSITORY STRUCTURE**
+
+# ==========================================
+
+Ensure the repo contains:
+
+```
+/backend
+/backend/src/workers/ocr-gpu-worker.ts
+/backend/Dockerfile.gpu
+/infra/ecs/
+/scripts/
+```
+
+If any are missing, create the required directories **without modifying code** unless needed.
+
+Output a summary of what exists and what is missing.
+
+---
+
+# ==========================================
+
+# ✅ **2. CREATE FINAL AWS ECR SETUP (GPU)**
+
+# ==========================================
+
+Create or update:
+
+```
+/scripts/aws-ecr-setup-gpu.sh
+```
+
+Script must:
+
+1. Create ECR repo `filot-ocr-gpu-worker` if not exists
+2. Login to ECR
+3. Tag Docker image
+4. Push Docker image to ECR
+
+The script must include:
+
+```bash
+aws ecr describe-repositories --repository-names filot-ocr-gpu-worker || \
+aws ecr create-repository --repository-name filot-ocr-gpu-worker
+```
+
+Platform must be:
+
+```
+linux/amd64
+```
+
+Output: **final script content**.
+
+---
+
+# ==========================================
+
+# ✅ **3. FIX & FINALIZE Dockerfile.gpu**
+
+# ==========================================
+
+Open and validate:
+
+```
+/backend/Dockerfile.gpu
+```
+
+Ensure:
+
+* Uses CUDA base: `nvidia/cuda:12.2.0-runtime-ubuntu22.04`
+* Installs Node 20
+* Installs Tesseract + Indonesian language packs
+* Uses non-root user `filot`
+* Exposes port 8080
+* Has HEALTHCHECK
+
+If missing, fix it.
+
+Output: **validated or patched Dockerfile.gpu**.
+
+---
+
+# ==========================================
+
+# ✅ **4. BUILD + TAG DOCKER IMAGE LOCALLY**
+
+# ==========================================
+
+Create script:
+
+```
+/scripts/build-gpu-worker.sh
+```
+
+It must:
+
+1. Build the GPU worker image
+2. Tag as `filot-ocr-gpu-worker:latest`
+3. Validate image exists with `docker images`
+
+Output the script.
+
+---
+
+# ==========================================
+
+# ✅ **5. ECS TASK DEFINITION (GPU OCR)**
+
+# ==========================================
+
+Generate and store:
+
+```
+/infra/ecs/task-ocr-gpu.json
+```
+
+The task definition must:
+
+* Use the ECR image:
+  `070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker:latest`
+* Runtime: `nvidia` GPU
+* GPU: `1`
+* CPU: `2048`
+* Memory: `8192`
+* Shared memory: `2048`
+* Includes **all required FiLot secrets** via Secrets Manager
+* Includes GPU env vars:
+
+```
+OCR_GPU_ENABLED=true
+OCR_GPU_CONCURRENCY=2
+OCR_GPU_AUTOFALLBACK=true
+OCR_GPU_MAX_RETRIES=3
+OCR_GPU_POLL_INTERVAL=1000
+OCR_GPU_QUEUE_KEY=filot:ocr:gpu:queue
+OCR_GPU_PROCESSING_KEY=filot:ocr:gpu:processing
+OCR_GPU_ATTEMPTS_KEY=filot:ocr:gpu:attempts
+OCR_GPU_PUBLISH_CHANNEL=filot:ocr:gpu:results
+```
+
+* Healthcheck:
+  `"command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]`
+
+Output: **full JSON**.
+
+---
+
+# ==========================================
+
+# ✅ **6. DEPLOYMENT SCRIPT FOR ECS**
+
+# ==========================================
+
+Create:
+
+```
+/scripts/deploy-ocr-gpu.sh
+```
+
+Script must support commands:
+
+```
+./deploy-ocr-gpu.sh build
+./deploy-ocr-gpu.sh push
+./deploy-ocr-gpu.sh register
+./deploy-ocr-gpu.sh update
+./deploy-ocr-gpu.sh all
+```
+
+Where:
+
+### **build**
+
+* Runs build-gpu-worker.sh
+
+### **push**
+
+* Runs aws-ecr-setup-gpu.sh
+
+### **register**
+
+Registers ECS task definition:
+
+```bash
+aws ecs register-task-definition \
+  --cli-input-json file://infra/ecs/task-ocr-gpu.json
+```
+
+### **update**
+
+Updates ECS service:
+
+```bash
+aws ecs update-service \
+  --cluster filot-ocr-gpu-cluster \
+  --service filot-ocr-gpu-service \
+  --force-new-deployment
+```
+
+### **all**
+
+Runs all above in correct order.
+
+Output the entire script.
+
+---
+
+# ==========================================
+
+# ✅ **7. CREATE MISSING INFRA STRUCTURE**
+
+# ==========================================
+
+Create if not exist:
+
+```
+/infra/ecs/cluster.json
+/infra/ecs/service-ocr-gpu.json
+```
+
+Service must:
+
+* Run on your Autoscaling group for GPU (g5.xlarge)
+* Use FARGATE disabled (EC2 only)
+* Assign 1 replica always running
+
+Output both files.
+
+---
+
+# ==========================================
+
+# ✅ **8. FINAL VALIDATION**
+
+# ==========================================
+
+Agent must check:
+
+* All scripts executable (`chmod +x`)
+* JSON validated
+* Dockerfile valid
+* No missing env vars
+* No missing secrets
+
+Output a final report summarizing:
+
+* Created files
+* Modified files
+* Any missing items
+* Next steps to deploy on AWS
