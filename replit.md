@@ -104,5 +104,46 @@ OCR_GPU_AUTOFALLBACK=true
 OCR_GPU_MAX_RETRIES=3
 OCR_GPU_QUEUE_KEY=filot:ocr:gpu:queue
 OCR_GPU_PROCESSING_KEY=filot:ocr:gpu:processing
+OCR_GPU_ATTEMPTS_KEY=filot:ocr:gpu:attempts
 OCR_GPU_PUBLISH_CHANNEL=filot:ocr:gpu:results
+```
+
+### T7-C AWS ECS Deployment (Latest)
+Tranche T7-C implements the complete AWS ECS deployment infrastructure for the GPU OCR Worker:
+
+- **Deployment Scripts** (`/scripts/`):
+  - `aws-ecr-setup-gpu.sh` - ECR repository setup and image push
+  - `build-gpu-worker.sh` - Docker image build for linux/amd64
+  - `deploy-ocr-gpu.sh` - Main deployment orchestration (build/push/register/update/all)
+
+- **ECS Infrastructure** (`/infra/ecs/`):
+  - `task-ocr-gpu.json` - ECS task definition with GPU requirements
+  - `cluster.json` - ECS cluster configuration
+  - `service-ocr-gpu.json` - ECS service with g5.xlarge placement
+
+- **AWS Resources**:
+  - ECS Cluster: `filot-ocr-gpu-cluster`
+  - ECS Service: `filot-ocr-gpu-service`
+  - ECR Repository: `filot-ocr-gpu-worker`
+  - Image: `070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker:latest`
+
+- **Documentation**: `doc/T7C_GPU_OCR_DEPLOYMENT.md`
+
+## Deployment Commands
+
+```bash
+# Build GPU worker image
+./scripts/deploy-ocr-gpu.sh build
+
+# Push to ECR
+./scripts/deploy-ocr-gpu.sh push
+
+# Register ECS task definition
+./scripts/deploy-ocr-gpu.sh register
+
+# Update ECS service
+./scripts/deploy-ocr-gpu.sh update
+
+# Run all (full deployment)
+./scripts/deploy-ocr-gpu.sh all
 ```

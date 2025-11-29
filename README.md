@@ -373,6 +373,49 @@ AI_SCORE_THRESHOLD_AUTO_REJECT=35
 ✅ **Tranche 4 (Document Upload & R2 Storage)** - COMPLETE  
 ✅ **Tranche 5 (Document Processing & OCR)** - COMPLETE  
 ✅ **Tranche 6 (Hybrid Verification FiLot ↔ BULI2)** - COMPLETE  
+✅ **Tranche T7-A (Temporal Cloud Setup)** - COMPLETE  
+✅ **Tranche T7-B (GPU OCR Worker Implementation)** - COMPLETE  
+✅ **Tranche T7-C (GPU OCR Worker AWS Deployment)** - COMPLETE
+
+---
+
+## Tranche T7-C: GPU OCR Worker Deployment
+
+This tranche implements the AWS ECS deployment infrastructure for the GPU OCR Worker.
+
+### Deployment Scripts
+
+```bash
+# Full deployment pipeline
+./scripts/deploy-ocr-gpu.sh all
+
+# Individual commands
+./scripts/deploy-ocr-gpu.sh build    # Build Docker image
+./scripts/deploy-ocr-gpu.sh push     # Push to ECR
+./scripts/deploy-ocr-gpu.sh register # Register ECS task definition
+./scripts/deploy-ocr-gpu.sh update   # Update ECS service
+```
+
+### Infrastructure Files
+
+| File | Purpose |
+|------|---------|
+| `/scripts/aws-ecr-setup-gpu.sh` | ECR repository and image push |
+| `/scripts/build-gpu-worker.sh` | Docker image build |
+| `/scripts/deploy-ocr-gpu.sh` | Deployment orchestration |
+| `/infra/ecs/task-ocr-gpu.json` | ECS task definition |
+| `/infra/ecs/cluster.json` | ECS cluster config |
+| `/infra/ecs/service-ocr-gpu.json` | ECS service config |
+
+### AWS Resources Required
+
+- ECS Cluster: `filot-ocr-gpu-cluster`
+- ECS Service: `filot-ocr-gpu-service`
+- ECR Repository: `filot-ocr-gpu-worker`
+- EC2 Instance Type: g5.xlarge (GPU-enabled)
+- AWS Region: ap-southeast-2
+
+**Full documentation**: `doc/T7C_GPU_OCR_DEPLOYMENT.md`  
 
 ---
 
