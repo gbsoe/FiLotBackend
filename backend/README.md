@@ -207,6 +207,18 @@ backend/
 
 ## Documentation
 
+### Production Hardening (T7-E/T7-F)
+- [Production Checklist](./docs/FiLot_PRODUCTION_CHECKLIST.md)
+- [Production Readiness Report](./docs/T7F_production_readiness_report.md)
+- [Final Summary](./docs/T7E_T7F_FINAL_SUMMARY.md)
+- [Environment Audit](./docs/T7E_env_audit.md)
+- [Security Report](./docs/T7E_security_report.md)
+- [GPU Integrity Report](./docs/T7E_gpu_integrity_report.md)
+- [Temporal Finalization](./docs/T7E_temporal_finalization.md)
+- [BULI2 Integration Report](./docs/T7E_buli2_final_report.md)
+- [Monitoring Report](./docs/T7E_monitoring_report.md)
+
+### Implementation Documentation
 - [T7-B GPU OCR Worker](./docs/T7B_GPU_OCR_WORKER.md)
 - [T7-A Temporal Setup](./docs/T7A_Temporal_Setup.md)
 - [T6.D Temporal Preparation](./docs/TRANCHE_T6.D.md)
@@ -215,9 +227,45 @@ backend/
 - [T6.A Security Hardening](./docs/T6A_SECURITY_HARDENING.md)
 - [Temporal Workflows](./src/temporal/workflows/README.md)
 
+## Monitoring & Metrics
+
+### Metrics Endpoint
+```
+GET /metrics
+```
+Returns real-time system metrics including queue depths, GPU worker status, and circuit breaker states.
+
+### CloudWatch Integration
+The backend emits CloudWatch EMF-compatible logs for automatic metric extraction:
+- `filot.queue_length` - Queue depth by type
+- `filot.gpu.active_jobs` - Active GPU processing jobs
+- `filot.gpu.processing_time_ms` - Processing duration
+- `filot.buli2.retry_count` - BULI2 retry queue depth
+
+## Production Deployment
+
+For production deployment, refer to:
+- [Production Readiness Report](./docs/T7F_production_readiness_report.md)
+- [Production Checklist](./docs/FiLot_PRODUCTION_CHECKLIST.md)
+- [Final Summary](./docs/T7E_T7F_FINAL_SUMMARY.md)
+
+### Quick Production Steps
+1. Copy `.env.example` to `.env` and fill in production values
+2. Run database migrations: `npm run db:push`
+3. Build production bundle: `npm run build`
+4. Start server: `npm start`
+
+### GPU Worker Deployment (ECS)
+```bash
+# Build and deploy GPU worker
+./scripts/deploy-ocr-gpu.sh all
+```
+
 ## Security Notes
 
 - Never commit secrets or API keys to version control
 - Store sensitive values in Replit Secrets or secure secret management
 - The `TEMPORAL_API_KEY` should be stored securely, not in environment files
 - All internal routes are protected with service key authentication
+- PII (NIK, NPWP, email, phone) is automatically masked in logs
+- Production error responses hide stack traces
