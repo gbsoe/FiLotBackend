@@ -384,9 +384,9 @@ class MockHybridVerification {
 class MockTemporalWorkflow {
   async execute(
     documentId: string,
-    ocrText: string,
-    parsed: ParsedDocument,
-    scoring: ScoringResult,
+    _ocrText: string,
+    _parsed: ParsedDocument,
+    _scoring: ScoringResult,
     verification: HybridVerificationResult
   ): Promise<void> {
     console.log(`[Temporal] Workflow started for: ${documentId}`);
@@ -435,7 +435,6 @@ class ECSRuntimeSimulator {
   private temporalWorkflow: MockTemporalWorkflow;
   private buli2Client: MockBULI2Client;
   private maxRetries: number = 3;
-  private isRunning: boolean = false;
 
   constructor() {
     this.redisQueue = new MockRedisQueue();

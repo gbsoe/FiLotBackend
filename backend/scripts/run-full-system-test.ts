@@ -325,7 +325,7 @@ class MockTemporalWorkflow {
   private state: WorkflowState = { status: "pending", retryCount: 0 };
   private signals: Map<string, unknown> = new Map();
 
-  async execute(input: { documentId: string }): Promise<{ success: boolean }> {
+  async execute(_input: { documentId: string }): Promise<{ success: boolean }> {
     this.state.status = "processing";
     await new Promise((resolve) => setTimeout(resolve, 10));
     this.state.status = "completed";
@@ -413,11 +413,6 @@ class E2EPipeline {
     this.documents.set(id, { id, status: "processing" });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
-
-    const ocrText =
-      type === "KTP"
-        ? "NIK: 3174051234560001\nNama: JOHN DOE"
-        : "NPWP: 01.234.567.8-901.000\nNama: JOHN DOE";
 
     const parsed =
       type === "KTP"
