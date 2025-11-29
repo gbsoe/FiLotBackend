@@ -86,7 +86,35 @@ Combines AI-powered scoring with manual review capabilities:
 
 ## Recent Changes
 
-### T7-B GPU OCR Worker (Latest)
+### T7-D Full System Testing (Latest)
+Tranche T7-D implements comprehensive testing infrastructure for the complete OCR pipeline:
+
+- **Test Suites** (`backend/tests/`):
+  - `redis/queue.test.ts` - Redis queue operations, pub/sub, retry logic
+  - `temporal/ocr-workflow.test.ts` - Temporal workflow states, signals, queries
+  - `e2e/ocr-end-to-end.test.ts` - Complete pipeline integration tests
+
+- **Mock Components** (`backend/src/workers/__mocks__/`):
+  - `gpu-worker-mock.ts` - GPU processor mock with fallback simulation
+
+- **Simulation Scripts** (`backend/scripts/`):
+  - `simulate-ecs-runtime.ts` - Full ECS worker simulation
+  - `run-full-system-test.ts` - Unified test runner (11/11 tests passing)
+
+- **Test Results**:
+  - Jest: 4 test suites, 59 tests passing
+  - Full System: 11 tests (Redis 4, GPU 3, Temporal 3, E2E 1)
+
+- **NPM Scripts Added**:
+  - `npm run test:redis` - Redis queue tests
+  - `npm run test:temporal` - Temporal workflow tests
+  - `npm run test:e2e` - End-to-end tests
+  - `npm run test:full` - Full system test runner
+  - `npm run simulate:ecs` - ECS runtime simulation
+
+- **Documentation**: `backend/docs/T7D_SYSTEM_TEST_REPORT.md`
+
+### T7-B GPU OCR Worker
 - Implemented GPU-accelerated OCR worker with Redis queue consumer
 - Added CUDA-enabled Dockerfile (`backend/Dockerfile.gpu`)
 - Created ECS deployment script (`backend/scripts/deploy-ocr-gpu.sh`) for ap-southeast-2

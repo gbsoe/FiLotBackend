@@ -40,6 +40,7 @@ class MockTemporalWorkflow extends EventEmitter {
     gpuShouldFail: boolean;
     gpuFailAfterAttempts: number;
     maxRetries: number;
+    fixedScore?: number;
   };
 
   constructor(config?: Partial<MockTemporalWorkflow["config"]>) {
@@ -49,6 +50,7 @@ class MockTemporalWorkflow extends EventEmitter {
       gpuShouldFail: false,
       gpuFailAfterAttempts: 0,
       maxRetries: 3,
+      fixedScore: 90,
       ...config,
     };
   }
@@ -133,7 +135,7 @@ class MockTemporalWorkflow extends EventEmitter {
       };
     }
 
-    const score = Math.floor(Math.random() * 30) + 70;
+    const score = this.config.fixedScore ?? 90;
     const decision = score >= 85 ? "auto_approve" : score >= 35 ? "needs_review" : "auto_reject";
     const outcome = score >= 75 ? "auto_approved" : "pending_manual_review";
 
@@ -150,7 +152,7 @@ class MockTemporalWorkflow extends EventEmitter {
   }
 
   private generateCPUResult(input: WorkflowInput): WorkflowOutput {
-    const score = Math.floor(Math.random() * 30) + 70;
+    const score = this.config.fixedScore ?? 90;
     const decision = score >= 85 ? "auto_approve" : score >= 35 ? "needs_review" : "auto_reject";
     const outcome = score >= 75 ? "auto_approved" : "pending_manual_review";
 
