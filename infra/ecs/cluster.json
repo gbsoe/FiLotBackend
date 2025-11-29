@@ -1,0 +1,38 @@
+{
+  "clusterName": "filot-ocr-gpu-cluster",
+  "tags": [
+    {
+      "key": "Project",
+      "value": "FiLot"
+    },
+    {
+      "key": "Component",
+      "value": "OCR-GPU-Cluster"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Tranche",
+      "value": "T7-C"
+    }
+  ],
+  "settings": [
+    {
+      "name": "containerInsights",
+      "value": "enabled"
+    }
+  ],
+  "configuration": {
+    "executeCommandConfiguration": {
+      "logging": "OVERRIDE",
+      "logConfiguration": {
+        "cloudWatchLogGroupName": "/ecs/filot-ocr-gpu-cluster",
+        "cloudWatchEncryptionEnabled": false
+      }
+    }
+  },
+  "capacityProviders": [],
+  "defaultCapacityProviderStrategy": []
+}
