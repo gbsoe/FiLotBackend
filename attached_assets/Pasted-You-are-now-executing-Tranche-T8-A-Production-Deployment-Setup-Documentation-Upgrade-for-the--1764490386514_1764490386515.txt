@@ -1,0 +1,133 @@
+You are now executing **Tranche T8-A: Production Deployment Setup + Documentation Upgrade** for the FiLot backend.
+
+=========================================
+OBJECTIVE
+=========================================
+Prepare FiLot for real production deployment by generating all required production configurations, environment secrets, validations, and documentation files. This tranche must produce all documentation and updates required before actual deployment.
+
+This is NOT deployment yet — only preparation of production configs + documentation.
+
+=========================================
+TASK LIST
+=========================================
+
+1. **Extract All Required Production Environment Variables**
+   - Parse `.env.example` and extract every variable.
+   - Generate a `prod.env.template` with all variables required in production.
+   - Validate missing/unused/duplicate variables.
+
+2. **Generate Required AWS Secrets Manager Map**
+   Create the following output:
+   - `production_secrets_required.json` (machine readable)
+   - `missing_required_secrets.txt` (any secrets not provided yet)
+   - Include placeholders for:
+     - PostgreSQL URL
+     - Redis URL + password
+     - Cloudflare R2 credentials
+     - Temporal Cloud credentials
+     - BULI2 API URL + callback URL + HMAC secret
+     - JWT secret
+     - Encryption salts
+     - All FiLot worker settings (OCR, GPU, pipelines)
+
+3. **Redis Validation**
+   - Review `redis.ts` or equivalent.
+   - Confirm correct production-safe Redis configuration.
+   - Generate `redis_validation_report.md`, including:
+     - Required variables
+     - URL format
+     - Missing passwords
+     - TLS requirements
+     - Queue naming conventions
+     - GPU worker queue consistency
+
+4. **GPU Worker Validation**
+   - Generate `gpu_worker_env_validation.md`
+   - Ensure GPU worker uses the same Redis configuration as backend.
+   - Validate GPU fallback logic.
+   - Validate environment variable completeness.
+
+5. **Cloudflare R2 Validation**
+   - Generate `r2_config_validation.md`
+   - Validate correct S3 compatibility
+   - Required credentials
+   - Required bucket policies
+
+6. **Temporal Cloud Integration Validation**
+   - Validate required environment variables:
+     - TEMPORAL_ADDRESS
+     - TEMPORAL_TOKEN
+     - TEMPORAL_NAMESPACE
+   - Generate `temporal_env_validation.md`
+
+7. **Update Repository Documentation**
+   - Update root `README.md` with:
+     - Production architecture overview
+     - OCR+GPU architecture diagram
+     - Temporal workflow architecture
+     - Redis queue architecture
+     - Environment setup guide
+     - Deployment overview for ECS
+     - GPU worker deployment guide
+     - Monitoring overview
+
+   - Update `REPLIT.md` with:
+     - Instructions for running FiLot in the Replit environment
+     - Development vs Production feature behavior
+     - GPU worker instructions (mock vs real)
+     - Temporal mock mode notes
+     - How tranches work (T7, T8 overview)
+
+8. **Generate New Documentation Files**
+   Create inside `/backend/docs`:
+
+   - `T8A_production_secrets_overview.md`
+   - `T8A_env_diagram.png` (ASCII if image not supported)
+   - `T8A_production_architecture.md`
+   - `T8A_predeployment_checklist.md`
+   - `T8A_readme_updates.md` (what was added to README)
+   - `T8A_full_system_overview.md` (the definitive updated system doc)
+
+9. **Validate That No Mock Code Remains**
+   - Ensure no mock BULI2 client
+   - Ensure no mock GPU worker
+   - Ensure no mock Temporal worker
+   - If any mock exists, generate:
+     - `mock_cleanup_report.md`
+
+10. **Output Summary**
+   Produce a final `T8A_summary.md` detailing:
+   - Completed tasks
+   - Missing secrets (if any)
+   - Next actions for T8-B
+
+=========================================
+REQUIRED OUTPUT FILES
+=========================================
+
+- prod.env.template
+- production_secrets_required.json
+- missing_required_secrets.txt
+- redis_validation_report.md
+- gpu_worker_env_validation.md
+- r2_config_validation.md
+- temporal_env_validation.md
+- T8A_production_secrets_overview.md
+- T8A_predeployment_checklist.md
+- T8A_production_architecture.md
+- T8A_readme_updates.md
+- T8A_full_system_overview.md
+- mock_cleanup_report.md (if needed)
+- T8A_summary.md
+
+=========================================
+IMPORTANT RULES
+=========================================
+- DO NOT run deployment.
+- DO NOT modify AWS infrastructure.
+- Only produce configuration, documentation, and validation reports.
+- Everything must be production-ready and precise.
+
+=========================================
+BEGIN EXECUTION NOW.
+=========================================
