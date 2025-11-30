@@ -86,7 +86,37 @@ Combines AI-powered scoring with manual review capabilities:
 
 ## Recent Changes
 
-### T7-E/T7-F Production Hardening (Latest)
+### T8-A Production Deployment Preparation (Latest)
+Tranche T8-A prepares the FiLot backend for production deployment:
+
+- **Production Environment Template** (`backend/prod.env.template`):
+  - Complete list of all 50+ production environment variables
+  - Documentation for each variable with format requirements
+  - AWS Secrets Manager integration paths
+
+- **Secrets Manifest** (`backend/production_secrets_required.json`):
+  - Machine-readable secrets list with 24 secrets tracked
+  - Status tracking (19 exist, 3 missing, 2 need verification)
+  - AWS Secrets Manager paths for each secret
+
+- **Validation Reports** (`backend/docs/`):
+  - `redis_validation_report.md` - Redis configuration validation
+  - `gpu_worker_env_validation.md` - GPU worker environment validation  
+  - `r2_config_validation.md` - Cloudflare R2 configuration validation
+  - `temporal_env_validation.md` - Temporal Cloud integration validation
+  - `mock_cleanup_report.md` - Mock code audit (no issues found)
+
+- **Pre-Deployment Checklist** (`backend/docs/T8A_predeployment_checklist.md`):
+  - Step-by-step deployment verification
+  - Security checklist with 40+ items
+  - Post-deployment smoke tests
+
+- **Missing Secrets** (`backend/missing_required_secrets.txt`):
+  - `JWT_SECRET` - Must generate before deployment
+  - `BULI2_API_KEY` - Obtain from BULI2 team
+  - `BULI2_SIGNATURE_SECRET` - Generate and share with BULI2 team
+
+### T7-E/T7-F Production Hardening
 Tranche T7-E and T7-F implement complete production hardening for the FiLot backend:
 
 - **Cloud Observability** (`backend/src/utils/metrics.ts`):

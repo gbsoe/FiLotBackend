@@ -207,6 +207,19 @@ backend/
 
 ## Documentation
 
+### T8-A Production Deployment Preparation (Latest)
+- [Pre-Deployment Checklist](./docs/T8A_predeployment_checklist.md)
+- [Production Secrets Overview](./docs/T8A_production_secrets_overview.md)
+- [Production Architecture](./docs/T8A_production_architecture.md)
+- [Full System Overview](./docs/T8A_full_system_overview.md)
+- [T8-A Summary](./docs/T8A_summary.md)
+
+### Validation Reports
+- [Redis Validation](./docs/redis_validation_report.md)
+- [GPU Worker Validation](./docs/gpu_worker_env_validation.md)
+- [R2 Storage Validation](./docs/r2_config_validation.md)
+- [Temporal Validation](./docs/temporal_env_validation.md)
+
 ### Production Hardening (T7-E/T7-F)
 - [Production Checklist](./docs/FiLot_PRODUCTION_CHECKLIST.md)
 - [Production Readiness Report](./docs/T7F_production_readiness_report.md)
@@ -250,10 +263,20 @@ For production deployment, refer to:
 - [Final Summary](./docs/T7E_T7F_FINAL_SUMMARY.md)
 
 ### Quick Production Steps
-1. Copy `.env.example` to `.env` and fill in production values
-2. Run database migrations: `npm run db:push`
-3. Build production bundle: `npm run build`
-4. Start server: `npm start`
+
+1. Copy `prod.env.template` to `.env` and fill in production values
+2. Check `missing_required_secrets.txt` for any missing secrets
+3. Run database migrations: `npm run db:push`
+4. Build production bundle: `npm run build`
+5. Start server: `npm start`
+
+### Production Configuration Files (T8-A)
+
+| File | Purpose |
+|------|---------|
+| `prod.env.template` | Complete production environment template |
+| `production_secrets_required.json` | Machine-readable secrets manifest |
+| `missing_required_secrets.txt` | Missing secrets checklist |
 
 ### GPU Worker Deployment (ECS)
 ```bash
