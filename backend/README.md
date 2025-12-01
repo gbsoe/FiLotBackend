@@ -258,30 +258,55 @@ The backend emits CloudWatch EMF-compatible logs for automatic metric extraction
 ## Production Deployment
 
 For production deployment, refer to:
+- [T8-B Production Deployment](./docs/T8B_PRODUCTION_DEPLOYMENT.md) (Latest)
+- [T8-B Deploy Runbook](../runbooks/T8B-deploy-runbook.md)
 - [Production Readiness Report](./docs/T7F_production_readiness_report.md)
 - [Production Checklist](./docs/FiLot_PRODUCTION_CHECKLIST.md)
-- [Final Summary](./docs/T7E_T7F_FINAL_SUMMARY.md)
 
 ### Quick Production Steps
 
-1. Copy `prod.env.template` to `.env` and fill in production values
-2. Check `missing_required_secrets.txt` for any missing secrets
-3. Run database migrations: `npm run db:push`
-4. Build production bundle: `npm run build`
-5. Start server: `npm start`
+1. Verify all AWS Secrets Manager secrets are populated
+2. Run database migrations: `npm run db:push`
+3. Deploy Backend API: `./scripts/deploy-backend.sh all`
+4. Deploy GPU Worker: `./scripts/deploy-ocr-gpu.sh all`
+5. Run smoke tests: `./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id`
 
-### Production Configuration Files (T8-A)
+### Production Configuration Files (T8-A/T8-B)
 
 | File | Purpose |
 |------|---------|
 | `prod.env.template` | Complete production environment template |
 | `production_secrets_required.json` | Machine-readable secrets manifest |
 | `missing_required_secrets.txt` | Missing secrets checklist |
+| `Dockerfile` | Backend API container (Fargate) |
+| `Dockerfile.gpu` | GPU OCR Worker container (EC2) |
 
-### GPU Worker Deployment (ECS)
+### Backend API Deployment (Fargate)
 ```bash
-# Build and deploy GPU worker
+# Full deployment pipeline
+./scripts/deploy-backend.sh all
+
+# Individual commands
+./scripts/deploy-backend.sh build     # Build Docker image
+./scripts/deploy-backend.sh push      # Push to ECR
+./scripts/deploy-backend.sh register  # Register ECS task
+./scripts/deploy-backend.sh update    # Update ECS service
+./scripts/deploy-backend.sh rollback  # Rollback to previous
+```
+
+### GPU Worker Deployment (ECS EC2)
+```bash
+# Full deployment pipeline
 ./scripts/deploy-ocr-gpu.sh all
+```
+
+### Production Validation
+```bash
+# Run smoke tests
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+
+# Requeue stuck OCR jobs
+./scripts/ops/requeue_stuck_jobs.sh --redis-url $REDIS_URL
 ```
 
 ## Security Notes

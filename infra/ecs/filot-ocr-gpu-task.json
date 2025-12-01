@@ -1,0 +1,179 @@
+{
+  "family": "filot-ocr-gpu-worker",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "executionRoleArn": "arn:aws:iam::070017891928:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::070017891928:role/filot-ecs-task-role",
+  "cpu": "2048",
+  "memory": "8192",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "filot-ocr-gpu-worker",
+      "image": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker:latest",
+      "essential": true,
+      "cpu": 1024,
+      "memory": 4096,
+      "memoryReservation": 2048,
+      "resourceRequirements": [
+        {
+          "type": "GPU",
+          "value": "1"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "OCR_GPU_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "OCR_GPU_CONCURRENCY",
+          "value": "2"
+        },
+        {
+          "name": "OCR_GPU_AUTOFALLBACK",
+          "value": "true"
+        },
+        {
+          "name": "OCR_GPU_MAX_RETRIES",
+          "value": "3"
+        },
+        {
+          "name": "OCR_GPU_POLL_INTERVAL",
+          "value": "1000"
+        },
+        {
+          "name": "OCR_GPU_QUEUE_KEY",
+          "value": "filot:ocr:gpu:queue"
+        },
+        {
+          "name": "OCR_GPU_PROCESSING_KEY",
+          "value": "filot:ocr:gpu:processing"
+        },
+        {
+          "name": "OCR_GPU_ATTEMPTS_KEY",
+          "value": "filot:ocr:gpu:attempts"
+        },
+        {
+          "name": "OCR_GPU_PUBLISH_CHANNEL",
+          "value": "filot:ocr:gpu:results"
+        },
+        {
+          "name": "OCR_GPU_STUCK_TIMEOUT",
+          "value": "300000"
+        },
+        {
+          "name": "OCR_GPU_REAPER_INTERVAL",
+          "value": "60000"
+        },
+        {
+          "name": "NVIDIA_VISIBLE_DEVICES",
+          "value": "all"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/redis-url"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/redis-password"
+        },
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/database-url"
+        },
+        {
+          "name": "CF_R2_ENDPOINT",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-endpoint"
+        },
+        {
+          "name": "CF_R2_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-access-key"
+        },
+        {
+          "name": "CF_R2_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-secret-key"
+        },
+        {
+          "name": "CF_R2_BUCKET_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-bucket"
+        },
+        {
+          "name": "BULI2_API_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/buli2-api-url"
+        },
+        {
+          "name": "BULI2_CALLBACK_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/buli2-callback-url"
+        }
+      ],
+      "linuxParameters": {
+        "sharedMemorySize": 2048
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/filot-ocr-gpu-worker",
+          "awslogs-region": "ap-southeast-2",
+          "awslogs-stream-prefix": "gpu",
+          "awslogs-create-group": "true"
+        }
+      },
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65535,
+          "hardLimit": 65535
+        },
+        {
+          "name": "memlock",
+          "softLimit": -1,
+          "hardLimit": -1
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": []
+    }
+  ],
+  "volumes": [],
+  "placementConstraints": [
+    {
+      "type": "memberOf",
+      "expression": "attribute:ecs.instance-type =~ g5.*"
+    }
+  ],
+  "tags": [
+    {
+      "key": "Project",
+      "value": "FiLot"
+    },
+    {
+      "key": "Component",
+      "value": "OCR-GPU-Worker"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Tranche",
+      "value": "T8-B"
+    }
+  ]
+}

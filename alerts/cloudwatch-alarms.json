@@ -1,0 +1,222 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "FiLot Production CloudWatch Alarms - T8-B",
+  "Parameters": {
+    "SNSTopicArn": {
+      "Type": "String",
+      "Description": "SNS Topic ARN for alarm notifications"
+    },
+    "Environment": {
+      "Type": "String",
+      "Default": "production",
+      "Description": "Environment name"
+    }
+  },
+  "Resources": {
+    "BackendHealthyHostCountAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-backend-unhealthy-hosts",
+        "AlarmDescription": "Backend has unhealthy or insufficient healthy hosts",
+        "MetricName": "HealthyHostCount",
+        "Namespace": "AWS/ApplicationELB",
+        "Statistic": "Minimum",
+        "Period": 60,
+        "EvaluationPeriods": 2,
+        "Threshold": 1,
+        "ComparisonOperator": "LessThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "TargetGroup",
+            "Value": "targetgroup/filot-backend-tg/REPLACE_TG_ID"
+          },
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/filot-alb/REPLACE_ALB_ID"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "OKActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "breaching"
+      }
+    },
+    "Backend5xxRateAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-backend-5xx-rate",
+        "AlarmDescription": "Backend 5xx error rate exceeds 2%",
+        "MetricName": "HTTPCode_Target_5XX_Count",
+        "Namespace": "AWS/ApplicationELB",
+        "Statistic": "Sum",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "TargetGroup",
+            "Value": "targetgroup/filot-backend-tg/REPLACE_TG_ID"
+          },
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/filot-alb/REPLACE_ALB_ID"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "notBreaching"
+      }
+    },
+    "BackendLatencyAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-backend-high-latency",
+        "AlarmDescription": "Backend P95 latency exceeds 2000ms",
+        "MetricName": "TargetResponseTime",
+        "Namespace": "AWS/ApplicationELB",
+        "ExtendedStatistic": "p95",
+        "Period": 300,
+        "EvaluationPeriods": 3,
+        "Threshold": 2,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "TargetGroup",
+            "Value": "targetgroup/filot-backend-tg/REPLACE_TG_ID"
+          },
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/filot-alb/REPLACE_ALB_ID"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "notBreaching"
+      }
+    },
+    "GPUQueueDepthAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-gpu-queue-depth-high",
+        "AlarmDescription": "GPU OCR queue depth exceeds 20 jobs",
+        "MetricName": "queue_length",
+        "Namespace": "FiLot",
+        "Statistic": "Maximum",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 20,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "queue",
+            "Value": "gpu"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "notBreaching"
+      }
+    },
+    "BULI2RetryQueueAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-buli2-retry-queue-high",
+        "AlarmDescription": "BULI2 retry queue depth exceeds 10",
+        "MetricName": "buli2_retry_queue_depth",
+        "Namespace": "FiLot",
+        "Statistic": "Maximum",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "notBreaching"
+      }
+    },
+    "GPUWorkerTaskCountAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-gpu-worker-no-tasks",
+        "AlarmDescription": "GPU worker has no running tasks",
+        "MetricName": "RunningTaskCount",
+        "Namespace": "ECS/ContainerInsights",
+        "Statistic": "Minimum",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 1,
+        "ComparisonOperator": "LessThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "filot-ocr-gpu-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "filot-ocr-gpu-service"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "breaching"
+      }
+    },
+    "BackendCPUAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-backend-high-cpu",
+        "AlarmDescription": "Backend CPU utilization exceeds 80%",
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/ECS",
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 3,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "filot-backend-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "filot-backend-service"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "notBreaching"
+      }
+    },
+    "BackendMemoryAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": "filot-backend-high-memory",
+        "AlarmDescription": "Backend memory utilization exceeds 85%",
+        "MetricName": "MemoryUtilization",
+        "Namespace": "AWS/ECS",
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 3,
+        "Threshold": 85,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "filot-backend-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "filot-backend-service"
+          }
+        ],
+        "AlarmActions": [{ "Ref": "SNSTopicArn" }],
+        "TreatMissingData": "notBreaching"
+      }
+    }
+  },
+  "Outputs": {
+    "BackendHealthAlarmArn": {
+      "Description": "Backend Health Alarm ARN",
+      "Value": { "Fn::GetAtt": ["BackendHealthyHostCountAlarm", "Arn"] }
+    },
+    "GPUQueueAlarmArn": {
+      "Description": "GPU Queue Alarm ARN",
+      "Value": { "Fn::GetAtt": ["GPUQueueDepthAlarm", "Arn"] }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "tranche": "T8-B",
+  "generated_at": "2024-12-01T00:00:00Z",
+  "aws_account_id": "070017891928",
+  "aws_region": "ap-southeast-2",
+  "images": {
+    "backend": {
+      "repository": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend",
+      "tag": "latest",
+      "digest": "sha256:REPLACE_AFTER_BUILD",
+      "deployed_at": null,
+      "build_info": {
+        "dockerfile": "backend/Dockerfile",
+        "platform": "linux/amd64",
+        "base_image": "node:20-alpine"
+      }
+    },
+    "ocr-gpu-worker": {
+      "repository": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker",
+      "tag": "latest",
+      "digest": "sha256:REPLACE_AFTER_BUILD",
+      "deployed_at": null,
+      "build_info": {
+        "dockerfile": "backend/Dockerfile.gpu",
+        "platform": "linux/amd64",
+        "base_image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04"
+      }
+    }
+  },
+  "ecs_services": {
+    "backend": {
+      "cluster": "filot-backend-cluster",
+      "service": "filot-backend-service",
+      "task_family": "filot-backend-task",
+      "launch_type": "FARGATE"
+    },
+    "ocr-gpu-worker": {
+      "cluster": "filot-ocr-gpu-cluster",
+      "service": "filot-ocr-gpu-service",
+      "task_family": "filot-ocr-gpu-worker",
+      "launch_type": "EC2"
+    }
+  },
+  "deployment_history": []
+}

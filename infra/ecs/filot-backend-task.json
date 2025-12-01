@@ -1,0 +1,187 @@
+{
+  "family": "filot-backend-task",
+  "cpu": "512",
+  "memory": "2048",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "executionRoleArn": "arn:aws:iam::070017891928:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::070017891928:role/filot-ecs-task-role",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "filot-backend",
+      "image": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "UPLOAD_DIR",
+          "value": "/app/uploads"
+        },
+        {
+          "name": "OCR_ENGINE",
+          "value": "redis"
+        },
+        {
+          "name": "OCR_AUTOFALLBACK",
+          "value": "true"
+        },
+        {
+          "name": "AI_SCORE_THRESHOLD_AUTO_APPROVE",
+          "value": "85"
+        },
+        {
+          "name": "AI_SCORE_THRESHOLD_AUTO_REJECT",
+          "value": "35"
+        },
+        {
+          "name": "LOG_LEVEL",
+          "value": "info"
+        },
+        {
+          "name": "CLOUDWATCH_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "METRICS_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "METRICS_NAMESPACE",
+          "value": "FiLot"
+        },
+        {
+          "name": "OCR_GPU_QUEUE_KEY",
+          "value": "filot:ocr:gpu:queue"
+        },
+        {
+          "name": "OCR_GPU_PUBLISH_CHANNEL",
+          "value": "filot:ocr:gpu:results"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/database-url"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/jwt-secret"
+        },
+        {
+          "name": "SESSION_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/session-secret"
+        },
+        {
+          "name": "SERVICE_INTERNAL_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/service-internal-key"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/redis-url"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/redis-password"
+        },
+        {
+          "name": "CF_R2_ENDPOINT",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-endpoint"
+        },
+        {
+          "name": "CF_R2_ACCESS_KEY_ID",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-access-key"
+        },
+        {
+          "name": "CF_R2_SECRET_ACCESS_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-secret-key"
+        },
+        {
+          "name": "CF_R2_BUCKET_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/cf-r2-bucket"
+        },
+        {
+          "name": "BULI2_API_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/buli2-api-url"
+        },
+        {
+          "name": "BULI2_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/buli2-api-key"
+        },
+        {
+          "name": "BULI2_CALLBACK_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/buli2-callback-url"
+        },
+        {
+          "name": "BULI2_SIGNATURE_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/buli2-signature-secret"
+        },
+        {
+          "name": "TEMPORAL_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/temporal-api-key"
+        },
+        {
+          "name": "TEMPORAL_ENDPOINT",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/temporal-endpoint"
+        },
+        {
+          "name": "TEMPORAL_NAMESPACE",
+          "valueFrom": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/temporal-namespace"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/filot-backend",
+          "awslogs-region": "ap-southeast-2",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "mountPoints": [],
+      "volumesFrom": []
+    }
+  ],
+  "volumes": [],
+  "tags": [
+    {
+      "key": "Project",
+      "value": "FiLot"
+    },
+    {
+      "key": "Component",
+      "value": "Backend-API"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Tranche",
+      "value": "T8-B"
+    }
+  ]
+}

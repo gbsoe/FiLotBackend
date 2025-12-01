@@ -1,0 +1,62 @@
+{
+  "cluster": "filot-ocr-gpu-cluster",
+  "serviceName": "filot-ocr-gpu-service",
+  "taskDefinition": "filot-ocr-gpu-worker",
+  "desiredCount": 1,
+  "launchType": "EC2",
+  "schedulingStrategy": "REPLICA",
+  "deploymentConfiguration": {
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    },
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100
+  },
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-REPLACE_WITH_PRIVATE_SUBNET_1",
+        "subnet-REPLACE_WITH_PRIVATE_SUBNET_2"
+      ],
+      "securityGroups": [
+        "sg-REPLACE_WITH_GPU_SECURITY_GROUP"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "placementConstraints": [
+    {
+      "type": "memberOf",
+      "expression": "attribute:ecs.instance-type =~ g5.*"
+    }
+  ],
+  "placementStrategy": [
+    {
+      "type": "spread",
+      "field": "attribute:ecs.availability-zone"
+    }
+  ],
+  "healthCheckGracePeriodSeconds": 120,
+  "enableECSManagedTags": true,
+  "propagateTags": "TASK_DEFINITION",
+  "enableExecuteCommand": true,
+  "tags": [
+    {
+      "key": "Project",
+      "value": "FiLot"
+    },
+    {
+      "key": "Component",
+      "value": "OCR-GPU-Service"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Tranche",
+      "value": "T8-B"
+    }
+  ]
+}

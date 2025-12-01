@@ -86,7 +86,38 @@ Combines AI-powered scoring with manual review capabilities:
 
 ## Recent Changes
 
-### T8-A Production Deployment Preparation (Latest)
+### T8-B Production Deployment (Latest)
+Tranche T8-B implements the complete production deployment infrastructure:
+
+- **Backend Dockerfile** (`backend/Dockerfile`):
+  - Multi-stage build for optimal image size
+  - Node.js 20 Alpine base with Tesseract OCR
+  - Non-root user for security
+  - Health check configured
+
+- **ECS Task Definitions** (`infra/ecs/`):
+  - `filot-backend-task.json` - Fargate task (512 CPU, 2GB RAM)
+  - `filot-ocr-gpu-task.json` - EC2 GPU task (2048 CPU, 8GB RAM, 1 GPU)
+  - AWS Secrets Manager integration for all secrets
+
+- **ECS Service Manifests** (`infra/ecs/`):
+  - `filot-backend-service.json` - Fargate service with ALB
+  - `filot-ocr-gpu-service.json` - EC2 service with g5.xlarge placement
+
+- **Deployment Scripts** (`scripts/`):
+  - `deploy-backend.sh` - Backend build/push/register/update/rollback
+  - `deploy-ocr-gpu.sh` - GPU Worker deployment
+  - `smoke/run_e2e_smoke.sh` - End-to-end validation
+  - `ops/requeue_stuck_jobs.sh` - Operations utility
+
+- **Runbook & Monitoring**:
+  - `runbooks/T8B-deploy-runbook.md` - Operator guide
+  - `alerts/cloudwatch-alarms.json` - CloudFormation template
+  - `logs/cloudwatch-queries.md` - Log analysis queries
+
+- **Documentation**: `backend/docs/T8B_PRODUCTION_DEPLOYMENT.md`
+
+### T8-A Production Deployment Preparation
 Tranche T8-A prepares the FiLot backend for production deployment:
 
 - **Production Environment Template** (`backend/prod.env.template`):
@@ -213,19 +244,57 @@ Tranche T7-C implements the complete AWS ECS deployment infrastructure for the G
 
 ## Deployment Commands
 
+### Backend API (Fargate)
 ```bash
-# Build GPU worker image
-./scripts/deploy-ocr-gpu.sh build
+# Full deployment pipeline
+./scripts/deploy-backend.sh all
 
-# Push to ECR
-./scripts/deploy-ocr-gpu.sh push
-
-# Register ECS task definition
-./scripts/deploy-ocr-gpu.sh register
-
-# Update ECS service
-./scripts/deploy-ocr-gpu.sh update
-
-# Run all (full deployment)
-./scripts/deploy-ocr-gpu.sh all
+# Individual commands
+./scripts/deploy-backend.sh build     # Build Docker image
+./scripts/deploy-backend.sh push      # Push to ECR
+./scripts/deploy-backend.sh register  # Register ECS task
+./scripts/deploy-backend.sh update    # Update ECS service
+./scripts/deploy-backend.sh rollback  # Rollback to previous
 ```
+
+### GPU OCR Worker (EC2)
+```bash
+# Full deployment pipeline
+./scripts/deploy-ocr-gpu.sh all
+
+# Individual commands
+./scripts/deploy-ocr-gpu.sh build     # Build Docker image
+./scripts/deploy-ocr-gpu.sh push      # Push to ECR
+./scripts/deploy-ocr-gpu.sh register  # Register ECS task
+./scripts/deploy-ocr-gpu.sh update    # Update ECS service
+```
+
+### Production Validation
+```bash
+# Run smoke tests
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+
+# Requeue stuck OCR jobs
+./scripts/ops/requeue_stuck_jobs.sh --redis-url $REDIS_URL
+```
+
+## Production Infrastructure
+
+### ECS Clusters
+- **Backend**: `filot-backend-cluster` (Fargate)
+- **GPU Worker**: `filot-ocr-gpu-cluster` (EC2 g5.xlarge)
+
+### ECR Repositories
+- `070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend`
+- `070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker`
+
+### AWS Secrets Manager Paths
+- `filot/jwt-secret` - JWT signing key
+- `filot/session-secret` - Session encryption key
+- `filot/service-internal-key` - Internal API auth key
+- `filot/database-url` - PostgreSQL connection string
+- `filot/redis-url` - Redis connection URL
+- `filot/redis-password` - Redis password
+- `filot/cf-r2-*` - Cloudflare R2 storage credentials
+- `filot/buli2-*` - BULI2 integration credentials
+- `filot/temporal-*` - Temporal Cloud credentials

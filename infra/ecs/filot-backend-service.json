@@ -1,0 +1,57 @@
+{
+  "cluster": "filot-backend-cluster",
+  "serviceName": "filot-backend-service",
+  "taskDefinition": "filot-backend-task",
+  "desiredCount": 2,
+  "launchType": "FARGATE",
+  "schedulingStrategy": "REPLICA",
+  "deploymentConfiguration": {
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    },
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100
+  },
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-REPLACE_WITH_PRIVATE_SUBNET_1",
+        "subnet-REPLACE_WITH_PRIVATE_SUBNET_2"
+      ],
+      "securityGroups": [
+        "sg-REPLACE_WITH_SECURITY_GROUP"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-southeast-2:070017891928:targetgroup/filot-backend-tg/REPLACE_WITH_TG_ID",
+      "containerName": "filot-backend",
+      "containerPort": 8080
+    }
+  ],
+  "healthCheckGracePeriodSeconds": 120,
+  "enableECSManagedTags": true,
+  "propagateTags": "TASK_DEFINITION",
+  "enableExecuteCommand": true,
+  "tags": [
+    {
+      "key": "Project",
+      "value": "FiLot"
+    },
+    {
+      "key": "Component",
+      "value": "Backend-Service"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Tranche",
+      "value": "T8-B"
+    }
+  ]
+}

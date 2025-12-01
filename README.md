@@ -375,7 +375,9 @@ AI_SCORE_THRESHOLD_AUTO_REJECT=35
 ✅ **Tranche 6 (Hybrid Verification FiLot ↔ BULI2)** - COMPLETE  
 ✅ **Tranche T7-A (Temporal Cloud Setup)** - COMPLETE  
 ✅ **Tranche T7-B (GPU OCR Worker Implementation)** - COMPLETE  
-✅ **Tranche T7-C (GPU OCR Worker AWS Deployment)** - COMPLETE
+✅ **Tranche T7-C (GPU OCR Worker AWS Deployment)** - COMPLETE  
+✅ **Tranche T8-A (Production Deployment Preparation)** - COMPLETE  
+✅ **Tranche T8-B (Production Deployment)** - COMPLETE
 
 ---
 
@@ -416,6 +418,65 @@ This tranche implements the AWS ECS deployment infrastructure for the GPU OCR Wo
 - AWS Region: ap-southeast-2
 
 **Full documentation**: `doc/T7C_GPU_OCR_DEPLOYMENT.md`  
+
+---
+
+## Tranche T8-B: Production Deployment
+
+This tranche implements the complete production deployment infrastructure for both Backend API (Fargate) and GPU OCR Worker (EC2).
+
+### Architecture
+
+```
+Internet → ALB → Backend (Fargate x2) → Redis/PostgreSQL/R2
+                      ↓
+              GPU Worker (EC2 g5.xlarge)
+```
+
+### Deployment Scripts
+
+```bash
+# Deploy Backend API
+./scripts/deploy-backend.sh all
+
+# Deploy GPU OCR Worker
+./scripts/deploy-ocr-gpu.sh all
+
+# Run Smoke Tests
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+
+# Requeue Stuck Jobs
+./scripts/ops/requeue_stuck_jobs.sh --redis-url $REDIS_URL
+```
+
+### Infrastructure Files
+
+| File | Purpose |
+|------|---------|
+| `backend/Dockerfile` | Backend API container (Fargate) |
+| `backend/Dockerfile.gpu` | GPU OCR Worker container (EC2) |
+| `infra/ecs/filot-backend-task.json` | Backend ECS task definition |
+| `infra/ecs/filot-backend-service.json` | Backend ECS service manifest |
+| `infra/ecs/filot-ocr-gpu-task.json` | GPU Worker ECS task definition |
+| `infra/ecs/filot-ocr-gpu-service.json` | GPU Worker ECS service manifest |
+| `alerts/cloudwatch-alarms.json` | CloudWatch alarms (CloudFormation) |
+
+### AWS Resources
+
+| Resource | Type | Purpose |
+|----------|------|---------|
+| `filot-backend-cluster` | ECS Cluster | Backend API |
+| `filot-backend-service` | ECS Service | Backend Fargate tasks |
+| `filot-ocr-gpu-cluster` | ECS Cluster | GPU Worker |
+| `filot-ocr-gpu-service` | ECS Service | GPU EC2 tasks |
+| `filot-backend` | ECR Repository | Backend images |
+| `filot-ocr-gpu-worker` | ECR Repository | GPU Worker images |
+
+### Documentation
+
+- [T8B Production Deployment](backend/docs/T8B_PRODUCTION_DEPLOYMENT.md)
+- [T8B Deploy Runbook](runbooks/T8B-deploy-runbook.md)
+- [CloudWatch Queries](logs/cloudwatch-queries.md)
 
 ---
 
