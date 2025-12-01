@@ -28,7 +28,7 @@
                     ▼                                           ▼
           ┌─────────────────┐                         ┌─────────────────┐
           │   Frontend      │                         │   Backend API   │
-          │   app.filot.id  │                         │  api.filot.id   │
+          │   app.filot.me  │                         │  api.filot.me   │
           │   (React/Vite)  │                         │  (Express/Node) │
           └────────┬────────┘                         └────────┬────────┘
                    │                                           │

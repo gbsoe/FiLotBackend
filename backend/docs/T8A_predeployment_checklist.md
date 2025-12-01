@@ -42,7 +42,7 @@ Use this checklist before deploying to production. All items must be verified.
 
 - [ ] `NODE_ENV=production`
 - [ ] `PORT=8080`
-- [ ] `FILOT_FRONTEND_ORIGIN=https://app.filot.id`
+- [ ] `FILOT_FRONTEND_ORIGIN=https://app.filot.me`
 
 ### OCR Configuration
 

@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "${SCRIPT_DIR}")")"
 
 # Configuration
-API_URL="${API_URL:-https://api.filot.id}"
+API_URL="${API_URL:-https://api.filot.me}"
 ADMIN_JWT="${ADMIN_JWT:-}"
 REDIS_HOST="${REDIS_HOST:-}"
 

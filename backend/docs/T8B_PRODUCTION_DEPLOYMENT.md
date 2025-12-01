@@ -54,7 +54,7 @@ Deploy FiLot backend API to production (ECS Fargate) and deploy GPU OCR worker t
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │                   Application Load Balancer                  │
-│                     (api.filot.id:443)                       │
+│                     (api.filot.me:443)                       │
 └───────────────────────────┬─────────────────────────────────┘
                             │
         ┌───────────────────┼───────────────────┐
@@ -181,7 +181,7 @@ After deployment, update `infra/deployments/T8-B/image-versions.json` with the d
 ### Run Smoke Tests
 
 ```bash
-./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me
 ```
 
 ---
@@ -273,7 +273,7 @@ The smoke test script validates:
 ========================================
   FiLot Production Smoke Tests
 ========================================
-API URL:    https://api.filot.id
+API URL:    https://api.filot.me
 Timestamp:  2024-12-01T00:00:00Z
 ========================================
 
@@ -398,6 +398,6 @@ backend/
 3. Update service manifests with correct subnet/security group values
 4. Run full deployment pipeline
 5. Execute smoke tests
-6. Configure DNS (api.filot.id → ALB)
+6. Configure DNS (api.filot.me → ALB)
 7. Set up CloudWatch dashboards
 8. Schedule production go-live

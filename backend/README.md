@@ -51,7 +51,7 @@ npm test
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FILOT_FRONTEND_ORIGIN` | - | Allowed CORS origin (e.g., `https://app.filot.id`) |
+| `FILOT_FRONTEND_ORIGIN` | - | Allowed CORS origin (e.g., `https://app.filot.me`) |
 | `SERVICE_INTERNAL_KEY` | - | Service key for internal routes |
 | `R2_PRIVATE_URL_EXPIRY` | `3600` | Presigned URL expiry in seconds |
 
@@ -269,7 +269,7 @@ For production deployment, refer to:
 2. Run database migrations: `npm run db:push`
 3. Deploy Backend API: `./scripts/deploy-backend.sh all`
 4. Deploy GPU Worker: `./scripts/deploy-ocr-gpu.sh all`
-5. Run smoke tests: `./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id`
+5. Run smoke tests: `./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me`
 
 ### Production Configuration Files (T8-A/T8-B)
 
@@ -303,7 +303,7 @@ For production deployment, refer to:
 ### Production Validation
 ```bash
 # Run smoke tests
-./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me
 
 # Requeue stuck OCR jobs
 ./scripts/ops/requeue_stuck_jobs.sh --redis-url $REDIS_URL

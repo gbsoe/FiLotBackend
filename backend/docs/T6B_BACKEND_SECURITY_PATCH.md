@@ -13,11 +13,11 @@ This document describes the security enhancements implemented in Tranche T6.B fo
 The backend enforces strict CORS (Cross-Origin Resource Sharing) policy:
 
 **Production Mode:**
-- Only `https://app.filot.id` is allowed as origin
+- Only `https://app.filot.me` is allowed as origin
 - All other origins are blocked and logged
 
 **Development Mode:**
-- `https://app.filot.id` (primary)
+- `https://app.filot.me` (primary)
 - `http://localhost:3000` (React dev server)
 - `http://localhost:19000` (Expo/React Native)
 
@@ -39,7 +39,7 @@ const corsConfig = cors({
 
 ### Environment Variable
 
-- `FILOT_FRONTEND_ORIGIN`: Primary frontend domain (default: `https://app.filot.id`)
+- `FILOT_FRONTEND_ORIGIN`: Primary frontend domain (default: `https://app.filot.me`)
 
 ---
 
@@ -156,14 +156,14 @@ HTTP Status: 429 (Too Many Requests)
 
 ```bash
 # Should succeed (production frontend)
-curl -H "Origin: https://app.filot.id" \
+curl -H "Origin: https://app.filot.me" \
      -X OPTIONS \
-     https://api.filot.id/health
+     https://api.filot.me/health
 
 # Should fail (unauthorized origin)
 curl -H "Origin: https://malicious-site.com" \
      -X OPTIONS \
-     https://api.filot.id/health
+     https://api.filot.me/health
 ```
 
 ### Service Key Testing
@@ -171,15 +171,15 @@ curl -H "Origin: https://malicious-site.com" \
 ```bash
 # Should succeed (valid key)
 curl -H "x-service-key: $SERVICE_INTERNAL_KEY" \
-     https://api.filot.id/internal/reviews
+     https://api.filot.me/internal/reviews
 
 # Should fail (missing key)
-curl https://api.filot.id/internal/reviews
+curl https://api.filot.me/internal/reviews
 # Returns: 401 Unauthorized
 
 # Should fail (invalid key)
 curl -H "x-service-key: invalid-key" \
-     https://api.filot.id/internal/reviews
+     https://api.filot.me/internal/reviews
 # Returns: 401 Unauthorized
 ```
 
@@ -188,17 +188,17 @@ curl -H "x-service-key: invalid-key" \
 ```bash
 # Get presigned URL (authenticated)
 curl -H "Authorization: Bearer $JWT_TOKEN" \
-     https://api.filot.id/documents/secure-download/<document-id>
+     https://api.filot.me/documents/secure-download/<document-id>
 
 # Response: { "url": "https://..." }
 
 # Should fail (unauthenticated)
-curl https://api.filot.id/documents/secure-download/<document-id>
+curl https://api.filot.me/documents/secure-download/<document-id>
 # Returns: 401 Unauthorized
 
 # Should fail (other user's document)
 curl -H "Authorization: Bearer $OTHER_USER_TOKEN" \
-     https://api.filot.id/documents/secure-download/<document-id>
+     https://api.filot.me/documents/secure-download/<document-id>
 # Returns: 403 Forbidden
 ```
 
@@ -207,7 +207,7 @@ curl -H "Authorization: Bearer $OTHER_USER_TOKEN" \
 ```bash
 # Send 65 requests quickly (should hit limit)
 for i in {1..65}; do
-  curl -s https://api.filot.id/health
+  curl -s https://api.filot.me/health
 done
 # Last 5 should return 429 Too Many Requests
 ```
@@ -218,7 +218,7 @@ done
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `FILOT_FRONTEND_ORIGIN` | Allowed frontend domain | `https://app.filot.id` |
+| `FILOT_FRONTEND_ORIGIN` | Allowed frontend domain | `https://app.filot.me` |
 | `SERVICE_INTERNAL_KEY` | Internal service authentication key | `sk_live_abc123...` (64 chars) |
 | `R2_PRIVATE_URL_EXPIRY` | Presigned URL expiry in seconds | `3600` |
 

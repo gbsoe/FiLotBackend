@@ -287,14 +287,14 @@ aws ecs wait services-stable \
 ### Run Smoke Tests
 
 ```bash
-./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me
 ```
 
 ### Manual Validation Checklist
 
 #### 1. API Health Check
 ```bash
-curl https://api.filot.id/health
+curl https://api.filot.me/health
 # Expected: {"ok":true,"redisConnected":true,...}
 ```
 

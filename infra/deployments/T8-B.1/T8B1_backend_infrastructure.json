@@ -1,0 +1,106 @@
+{
+  "_meta": {
+    "tranche": "T8-B.1",
+    "generated": "2024-12-01",
+    "description": "FiLot Backend ECS Fargate Infrastructure Summary",
+    "note": "This is a summary document. For actual AWS deployment, use the ECS definitions in infra/ecs/",
+    "region": "ap-southeast-2",
+    "accountId": "070017891928"
+  },
+
+  "references": {
+    "taskDefinition": "infra/ecs/filot-backend-task.json",
+    "serviceDefinition": "infra/ecs/filot-backend-service.json",
+    "deploymentScript": "scripts/deploy-backend.sh",
+    "smokeTests": "scripts/smoke/run_e2e_smoke.sh"
+  },
+
+  "infrastructure": {
+    "cluster": {
+      "name": "filot-backend-cluster",
+      "type": "FARGATE"
+    },
+    "service": {
+      "name": "filot-backend-service",
+      "desiredCount": 2,
+      "launchType": "FARGATE"
+    },
+    "taskDefinition": {
+      "family": "filot-backend-task",
+      "cpu": "512",
+      "memory": "2048",
+      "networkMode": "awsvpc",
+      "containerPort": 8080
+    },
+    "ecr": {
+      "repository": "filot-backend",
+      "uri": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend"
+    }
+  },
+
+  "networking": {
+    "loadBalancer": {
+      "name": "filot-backend-alb",
+      "type": "application",
+      "scheme": "internet-facing"
+    },
+    "targetGroup": {
+      "name": "filot-backend-tg",
+      "port": 8080,
+      "protocol": "HTTP",
+      "healthCheckPath": "/health"
+    },
+    "domain": {
+      "api": "api.filot.me",
+      "frontend": "app.filot.me"
+    }
+  },
+
+  "secrets": {
+    "path": "filot/*",
+    "list": [
+      "filot/jwt-secret",
+      "filot/session-secret",
+      "filot/service-internal-key",
+      "filot/database-url",
+      "filot/redis-url",
+      "filot/redis-password",
+      "filot/cf-r2-endpoint",
+      "filot/cf-r2-access-key",
+      "filot/cf-r2-secret-key",
+      "filot/cf-r2-bucket",
+      "filot/buli2-api-url",
+      "filot/buli2-api-key",
+      "filot/buli2-callback-url",
+      "filot/buli2-signature-secret",
+      "filot/temporal-api-key",
+      "filot/temporal-endpoint",
+      "filot/temporal-namespace"
+    ]
+  },
+
+  "iamRoles": {
+    "executionRole": "arn:aws:iam::070017891928:role/ecsTaskExecutionRole",
+    "taskRole": "arn:aws:iam::070017891928:role/filot-ecs-task-role"
+  },
+
+  "cloudwatch": {
+    "logGroup": "/ecs/filot-backend",
+    "retentionDays": 90
+  },
+
+  "deployment": {
+    "commands": {
+      "full": "./scripts/deploy-backend.sh all",
+      "build": "./scripts/deploy-backend.sh build",
+      "push": "./scripts/deploy-backend.sh push",
+      "register": "./scripts/deploy-backend.sh register",
+      "update": "./scripts/deploy-backend.sh update",
+      "rollback": "./scripts/deploy-backend.sh rollback"
+    },
+    "validation": {
+      "smokeTest": "./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me",
+      "healthCheck": "curl https://api.filot.me/health"
+    }
+  }
+}

@@ -2332,7 +2332,7 @@ const handle = await client.workflow.start(kycReviewWorkflow, {
 2. **Configure CORS**
    ```typescript
    app.use(cors({
-     origin: ['https://filot.app', 'https://app.filot.id'],
+     origin: ['https://filot.app', 'https://app.filot.me'],
      credentials: true
    }));
    ```

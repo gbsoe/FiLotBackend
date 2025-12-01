@@ -443,7 +443,7 @@ Internet → ALB → Backend (Fargate x2) → Redis/PostgreSQL/R2
 ./scripts/deploy-ocr-gpu.sh all
 
 # Run Smoke Tests
-./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me
 
 # Requeue Stuck Jobs
 ./scripts/ops/requeue_stuck_jobs.sh --redis-url $REDIS_URL
@@ -477,6 +477,34 @@ Internet → ALB → Backend (Fargate x2) → Redis/PostgreSQL/R2
 - [T8B Production Deployment](backend/docs/T8B_PRODUCTION_DEPLOYMENT.md)
 - [T8B Deploy Runbook](runbooks/T8B-deploy-runbook.md)
 - [CloudWatch Queries](logs/cloudwatch-queries.md)
+
+---
+
+## Tranche T8-B.1: Backend Deployment Patch
+
+This tranche fixes domain references and completes backend deployment documentation.
+
+### Domain Migration
+
+| Old Domain | New Domain |
+|------------|------------|
+| `app.filot.id` | `app.filot.me` |
+| `api.filot.id` | `api.filot.me` |
+
+### Documentation Files
+
+| File | Purpose |
+|------|---------|
+| [T8B1 Summary](backend/docs/T8B1_summary.md) | Tranche overview |
+| [Domain Replacement Report](backend/docs/T8B1_domain_replacement_report.md) | Migration changelog |
+| [ALB Configuration](backend/docs/T8B1_alb_config_summary.md) | Load balancer setup |
+| [Route53 Validation](backend/docs/T8B1_route53_validation.md) | DNS configuration |
+| [BULI2 Callback Validation](backend/docs/T8B1_buli2_callback_validation.md) | Callback endpoints |
+| [Smoke Test Procedures](backend/docs/T8B1_backend_smoke_test.md) | Testing guide |
+
+### Infrastructure
+
+- `infra/deployments/T8-B.1/T8B1_backend_infrastructure.json` - ECS Fargate configuration
 
 ---
 

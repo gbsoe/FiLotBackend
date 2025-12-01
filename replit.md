@@ -86,7 +86,24 @@ Combines AI-powered scoring with manual review capabilities:
 
 ## Recent Changes
 
-### T8-B Production Deployment (Latest)
+### T8-B.1 Backend Deployment Patch (Latest)
+Tranche T8-B.1 fixes domain references and completes backend deployment documentation:
+
+- **Domain Migration**: All `filot.id` references updated to `filot.me`
+  - Frontend: `https://app.filot.me`
+  - Backend: `https://api.filot.me`
+
+- **Documentation Files** (`backend/docs/`):
+  - `T8B1_summary.md` - Tranche overview
+  - `T8B1_domain_replacement_report.md` - Migration changelog
+  - `T8B1_alb_config_summary.md` - ALB/HTTPS configuration
+  - `T8B1_route53_validation.md` - DNS configuration guide
+  - `T8B1_buli2_callback_validation.md` - BULI2 callback endpoints
+  - `T8B1_backend_smoke_test.md` - Testing procedures
+
+- **Infrastructure Config**: `infra/deployments/T8-B.1/T8B1_backend_infrastructure.json`
+
+### T8-B Production Deployment
 Tranche T8-B implements the complete production deployment infrastructure:
 
 - **Backend Dockerfile** (`backend/Dockerfile`):
@@ -272,7 +289,7 @@ Tranche T7-C implements the complete AWS ECS deployment infrastructure for the G
 ### Production Validation
 ```bash
 # Run smoke tests
-./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.id
+./scripts/smoke/run_e2e_smoke.sh --api-url https://api.filot.me
 
 # Requeue stuck OCR jobs
 ./scripts/ops/requeue_stuck_jobs.sh --redis-url $REDIS_URL

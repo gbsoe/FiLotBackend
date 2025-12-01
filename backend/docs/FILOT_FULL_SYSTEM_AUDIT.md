@@ -408,7 +408,7 @@ See `TRANCHE_T7B_RESULT.md` for full implementation details.
 **Implementation:** `backend/src/middlewares/corsConfig.ts`
 
 **Allowed Origins:**
-- Production: `https://app.filot.id` (from `FILOT_FRONTEND_ORIGIN`)
+- Production: `https://app.filot.me` (from `FILOT_FRONTEND_ORIGIN`)
 - Development: `http://localhost:3000`, `http://localhost:19000`
 
 **Methods:** GET, POST, PUT, PATCH, DELETE  

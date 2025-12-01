@@ -1,7 +1,7 @@
 import cors from "cors";
 import { logger } from "../utils/logger";
 
-const FILOT_FRONTEND_ORIGIN = process.env.FILOT_FRONTEND_ORIGIN || "https://app.filot.id";
+const FILOT_FRONTEND_ORIGIN = process.env.FILOT_FRONTEND_ORIGIN || "https://app.filot.me";
 
 const getAllowedOrigins = (): string[] => {
   const origins = [FILOT_FRONTEND_ORIGIN];
