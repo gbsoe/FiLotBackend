@@ -1,0 +1,151 @@
+You are now executing **T8-B.1 — Backend Deployment Patch for FiLot**.
+
+T8-B previously generated configs and task definitions but did NOT deploy the backend.
+This tranche must COMPLETE the backend deployment with correct domain and infrastructure.
+
+====================================================
+OBJECTIVE
+====================================================
+Deploy the FiLot Backend API to AWS using **ECS Fargate**, expose it via
+**https://api.filot.me**, fix all documentation referring to filot.id, and
+activate BULI2 callback endpoints in production.
+
+====================================================
+TASK LIST
+====================================================
+
+PART 1 — Fix All T8-B Domain References
+---------------------------------------
+1. Search the codebase and documentation for:
+   - "filot.id"
+   - "api.filot.id"
+2. Replace all occurrences with:
+   - "filot.me"
+   - "api.filot.me"
+3. Update:
+   - README.md
+   - REPLIT.md
+   - T8-B documentation files
+   - Any deployment diagrams referencing filot.id
+4. Output a patch summary file:
+   `T8B1_domain_replacement_report.md`
+
+PART 2 — Create ECS Fargate Backend Infrastructure
+--------------------------------------------------
+Create the *missing* backend production infra:
+
+1. Create ECS Cluster:
+   Name: **filot-backend-cluster**
+
+2. Create IAM roles if missing:
+   - ecsTaskExecutionRole
+   - ecsTaskRole
+
+3. Build backend Docker image and push to ECR:
+   Repo: **filot-backend**
+
+4. Create Fargate Task Definition:
+   - CPU: 512
+   - Memory: 1024 or 2048
+   - Port: 8080
+   - Environment variables from prod.env
+   - Secrets from AWS Secrets Manager
+
+5. Create VPC Networking:
+   - Use default VPC or existing FiLot VPC
+
+PART 3 — Create Application Load Balancer (HTTPS)
+--------------------------------------------------
+1. Create ALB:
+   Name: **filot-backend-alb**
+
+2. Create Security Groups:
+   - ALB SG: allow 80/443 from internet
+   - Backend SG: allow 8080 only from ALB SG
+
+3. Request ACM Certificate for:
+   - api.filot.me
+
+4. Configure ALB Listeners:
+   - 80 → redirect to 443
+   - 443 → forward → **filot-backend-tg**
+
+5. Create Target Group:
+   Name: **filot-backend-tg**
+   Health check: `/health`
+
+PART 4 — Create ECS Fargate Service
+-----------------------------------
+1. Service Name: **filot-backend-service**
+2. Link to:
+   - Cluster: filot-backend-cluster
+   - Task Definition: filot-backend
+   - Target Group: filot-backend-tg
+3. Set desired count: 1
+4. Enable Auto-Redeploy on image update
+
+PART 5 — Route53 Configuration
+------------------------------
+1. Create A-record:
+   **api.filot.me → ALB DNS**
+2. Validate DNS propagation
+3. Produce DNS status report:
+   `T8B1_route53_validation.md`
+
+PART 6 — Activate BULI2 Callback Endpoints
+------------------------------------------
+Expose these endpoints publicly via Fargate:
+
+- POST `https://api.filot.me/internal/buli2/callback`
+- POST `https://api.filot.me/internal/buli2/callback/backup`
+- GET  `https://api.filot.me/internal/buli2/health`
+- GET  `https://api.filot.me/internal/buli2/status/{id}`
+
+Validate they return:
+- 200 OK
+- Signature verification loads
+- BULI2 secrets load correctly
+
+Generate:
+`T8B1_buli2_callback_validation.md`
+
+PART 7 — Testing & Smoke Checks
+-------------------------------
+Test the following endpoints and log:
+
+1. `GET https://api.filot.me/health`
+2. `GET https://api.filot.me/version`
+3. `GET https://api.filot.me/internal/buli2/health`
+4. `POST https://api.filot.me/internal/buli2/callback` (mock payload)
+5. Test connectivity:
+   - Redis
+   - Postgres
+   - R2
+   - Temporal Cloud (if already configured)
+
+Generate:
+`T8B1_backend_smoke_test.md`
+
+====================================================
+FINAL OUTPUT FILES REQUIRED
+====================================================
+- T8B1_domain_replacement_report.md
+- T8B1_backend_infrastructure.json
+- T8B1_alb_config_summary.md
+- T8B1_route53_validation.md
+- T8B1_buli2_callback_validation.md
+- T8B1_backend_smoke_test.md
+- T8B1_summary.md
+
+====================================================
+IMPORTANT RULES
+====================================================
+- DO NOT modify GPU worker infra (T8-C).
+- DO NOT modify Temporal worker infra (T8-D).
+- Only deploy the backend API.
+- Ensure all filot.id → filot.me replacements.
+- Ensure production readiness before moving to T8-C.
+
+====================================================
+BEGIN EXECUTION NOW.
+====================================================
