@@ -1,0 +1,339 @@
+T8-B — Production Deployment (FiLot Backend + GPU OCR Worker)
+
+## Objective
+
+Deploy FiLot backend API to production (ECS Fargate) and deploy GPU OCR worker to ECS on EC2-managed GPU instances (g5.xlarge via `filot-ocr-gpu-cluster` + `filot-ocr-gpu-asg`). Validate end-to-end: API, OCR, Redis, DB, BULI2, Temporal, monitoring, and run smoke tests. Produce deployment manifests and runbook.
+
+---
+
+## Prerequisites (must be present before starting)
+
+1. **Secrets (AWS Secrets Manager)** — All required secrets added:
+
+   * `filot/production/jwt-secret` (JWT_SECRET)
+   * `filot/production/session-secret` (SESSION_SECRET)
+   * `filot/production/service-internal-key` (SERVICE_INTERNAL_KEY)
+   * `filot/production/database-url` (DATABASE_URL)
+   * `filot/production/redis` (REDIS_URL + REDIS_PASSWORD)
+   * `filot/production/cf-r2` (CF_R2_ACCESS_KEY_ID, CF_R2_SECRET_ACCESS_KEY, CF_R2_BUCKET_NAME, CF_R2_ENDPOINT)
+   * `filot/production/buli2` (BULI2_API_KEY, BULI2_SIGNATURE_SECRET, BULI2_API_URL, BULI2_CALLBACK_URL)
+   * `filot/production/temporal` (TEMPORAL_API_KEY, TEMPORAL_ENDPOINT, TEMPORAL_NAMESPACE) — if using Temporal
+   * `filot/production/aws-account-id` (AWS_ACCOUNT_ID)
+   * Any other vars in `prod.env.template`
+2. **ECR repos exist**:
+
+   * `070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend`
+   * `070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker`
+3. **ECS clusters exist**:
+
+   * Backend cluster for Fargate (e.g. `filot-backend-cluster`)
+   * GPU cluster for EC2 instances (`filot-ocr-gpu-cluster`)
+4. **ASG & Launch Template** for GPU (you already have `filot-ocr-gpu-asg` + `filot-ocr-gpu-template`) and instance profile `ecsInstanceRole` attached.
+5. **ALB / Target Group** configured for backend (or plan to create during deploy).
+6. **CloudWatch log groups** prepared (or deploy will create them).
+7. **CI runner has AWS CLI / docker / jq / aws-ecs-deploy utilities** and IAM credentials with rights to ECR, ECS, EC2, ASG, Secrets Manager, CloudWatch, Route53 (if needed), ALB.
+
+---
+
+## High-level plan (phases)
+
+1. Verify secrets & infra
+2. Build & push Docker images (backend, gpu-worker)
+3. Deploy backend (ECS Fargate)
+4. Deploy GPU OCR worker (ECS task on EC2 GPU cluster)
+5. Deploy Temporal worker (if used)
+6. Configure monitoring & alarms
+7. Run smoke tests & E2E tests
+8. Sign-off / Go-Live or rollback if failures
+
+---
+
+## Tasks — Detailed (executable steps)
+
+### 0) Pre-flight checks (automatable)
+
+* Confirm all missing secrets from `missing_required_secrets.txt` are now present.
+* Verify `REDIS_URL` uses `rediss://` and is reachable from within VPC.
+* Confirm `DATABASE_URL` is reachable (neon / RDS) and migrations applied (we’ll run `npm run db:push` later).
+* Confirm ECR repos exist and you can `docker push`.
+* Confirm ECS service IAM roles exist: `ecsTaskExecutionRole`, `ecsInstanceRole`, `ecsInfrastructureRoleForManagedInstances`.
+
+**Commands**
+
+```bash
+aws secretsmanager get-secret-value --secret-id filot/production/jwt-secret
+aws ecr describe-repositories --repository-names filot-backend filot-ocr-gpu-worker
+aws ecs describe-clusters --clusters filot-ocr-gpu-cluster filot-backend-cluster
+aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names filot-ocr-gpu-asg
+```
+
+---
+
+### 1) Build & push Docker images
+
+**Backend**
+
+```bash
+# from repo root
+docker build -t filot-backend:latest -f backend/Dockerfile .
+aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 070017891928.dkr.ecr.ap-southeast-2.amazonaws.com
+docker tag filot-backend:latest 070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend:latest
+docker push 070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend:latest
+```
+
+**GPU Worker (CUDA image)**
+
+```bash
+# ensure builder supports nvidia/cuda base and proper platform
+docker build -t filot-ocr-gpu-worker:latest -f backend/Dockerfile.gpu .
+docker tag filot-ocr-gpu-worker:latest 070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker:latest
+docker push 070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker:latest
+```
+
+**Artifacts to produce**
+
+* `image-versions.json` with image tags & digests.
+
+---
+
+### 2) Backend: register ECS Task Definition (Fargate) & create/update ECS Service
+
+**Task Definition (sample snippet)** — produce as `infra/ecs/filot-backend-task.json`
+
+```json
+{
+  "family": "filot-backend-task",
+  "cpu": "512",
+  "memory": "2048",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "executionRoleArn": "arn:aws:iam::070017891928:role/ecsTaskExecutionRole",
+  "containerDefinitions": [{
+     "name": "filot-backend",
+     "image": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend:latest",
+     "portMappings":[{"containerPort":8080,"protocol":"tcp"}],
+     "essential": true,
+     "environment": [
+       {"name":"NODE_ENV","value":"production"},
+       {"name":"PORT","value":"8080"}
+     ],
+     "secrets": [
+       {"name":"DATABASE_URL","valueFrom":"arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/production/database-url"},
+       {"name":"JWT_SECRET","valueFrom":"arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/production/jwt-secret"},
+       {"name":"REDIS_URL","valueFrom":"arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/production/redis"}
+       /* add other secrets paths */
+     ],
+     "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+           "awslogs-group": "/ecs/filot-backend",
+           "awslogs-region": "ap-southeast-2",
+           "awslogs-stream-prefix": "ecs"
+        }
+     }
+  }]
+}
+```
+
+**Register & Update service**
+
+```bash
+aws ecs register-task-definition --cli-input-json file://infra/ecs/filot-backend-task.json
+aws ecs update-service --cluster filot-backend-cluster --service filot-backend-service --task-definition filot-backend-task:1
+```
+
+**ALB & Target Group**
+
+* Attach ecs service to ALB target group with health check `/health`.
+
+**Acceptance criteria**
+
+* Service stable with desired tasks running.
+* Health checks green.
+* Log group shows application startup logs.
+* `/health` returns `ok` and lists `redisConnected: true` etc.
+
+---
+
+### 3) GPU OCR Worker: register ECS TaskDefinition (EC2 GPU) & create/update ECS Service
+
+**Key differences**: This task will require GPU resource requirement and `compatibilities` configured for EC2. It will run on cluster `filot-ocr-gpu-cluster` where the ASG provides GPU instances.
+
+**Task definition snippet (produce as `infra/ecs/filot-ocr-gpu-task.json`)**
+
+```json
+{
+  "family": "filot-ocr-gpu-worker",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "executionRoleArn": "arn:aws:iam::070017891928:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::070017891928:role/ecsTaskRole",
+  "containerDefinitions": [{
+     "name": "filot-ocr-gpu-worker",
+     "image": "070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-ocr-gpu-worker:latest",
+     "essential": true,
+     "cpu": 1024,
+     "memory": 4096,
+     "resourceRequirements": [
+       { "value": "1", "type": "GPU" }
+     ],
+     "environment": [
+         {"name":"OCR_GPU_ENABLED","value":"true"},
+         {"name":"OCR_GPU_CONCURRENCY","value":"2"}
+     ],
+     "secrets":[
+        {"name":"REDIS_URL","valueFrom":"arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/production/redis"}
+     ],
+     "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+           "awslogs-group": "/ecs/filot-ocr-gpu-worker",
+           "awslogs-region": "ap-southeast-2",
+           "awslogs-stream-prefix": "gpu"
+        }
+     ]
+  }]
+}
+```
+
+**Register & create service**
+
+```bash
+aws ecs register-task-definition --cli-input-json file://infra/ecs/filot-ocr-gpu-task.json
+# create or update service
+aws ecs create-service \
+  --cluster filot-ocr-gpu-cluster \
+  --service-name filot-ocr-gpu-service \
+  --task-definition filot-ocr-gpu-worker \
+  --desired-count 1 \
+  --launch-type EC2
+```
+
+**Placement & constraints**
+
+* Service should have placement constraints to schedule on GPU-capable instances if necessary; but cluster with only g5 instances should suffice.
+* Ensure the ASG has at least 1 instance healthy and `ecsAgent` running.
+
+**Acceptance criteria**
+
+* Task scheduled on the g5.xlarge instance.
+* Container logs show GPU detected (NVIDIA driver & `nvidia-smi` output).
+* Worker connects to Redis and subscribes to `filot:ocr:gpu:queue`.
+* Worker processes a sample job and publishes to `filot:ocr:gpu:results`.
+
+---
+
+### 4) Temporal worker (if enabled)
+
+* Build & push image (if separate).
+* Register task/ service similar to backend (Fargate or EC2 based on your config).
+* Provide `TEMPORAL_API_KEY` via Secrets Manager.
+* Start worker and validate workflow lifecycle.
+
+**Smoke commands**
+
+```bash
+# start a test workflow via API
+curl -X POST "https://api.filot.id/verification/evaluate" -H "Authorization: Bearer <ADMIN_JWT>" -d '{"documentId":"<sample>"}'
+# check workflow status
+curl "https://api.filot.id/verification/status/<documentId>"
+```
+
+---
+
+### 5) Database migrations
+
+* Run migrations from the backend image or CI:
+
+```bash
+# run inside container or on CI
+docker run --env-file prod.env --rm 070017891928.dkr.ecr.ap-southeast-2.amazonaws.com/filot-backend:latest npm run db:push
+```
+
+* Validate tables exist: `users`, `profiles`, `documents`, `manual_reviews`.
+
+---
+
+### 6) Monitoring & alarms
+
+Create CloudWatch dashboards and alarms (templates to commit to infra repo):
+
+**Recommended alarms**
+
+* `filot.queue_length (GPU)` > 20 -> SNS
+* `filot.buli2.retry_queue_depth` > 10 -> SNS
+* ALB target 5xx rate > 2% -> PagerDuty/SMS
+* API latency P95 > 2000ms
+
+**Log groups**
+
+* `/ecs/filot-backend`
+* `/ecs/filot-ocr-gpu-worker`
+* set retention (90 days or per policy)
+
+---
+
+### 7) Smoke tests & E2E validation (must pass)
+
+1. API health: `GET https://api.filot.id/health` -> ok
+2. Upload real KTP via API or frontend -> returns document id
+3. Document queued in Redis (`LRANGE filot:ocr:gpu:queue 0 -1`) -> contains job
+4. GPU worker consumes job, logs show OCR result -> Worker publishes to `filot:ocr:gpu:results`
+5. Backend receives result, AI scoring applied -> document `verification_status` updated
+6. If score in [35,85] escalate to BULI2 -> ensure BULI2 receives callback and callback to `/internal/reviews` validated
+7. Temporal workflows (if used) show correct transitions
+
+**Scripts to run**
+
+* `scripts/smoke/run_e2e_smoke.sh` (create this): collects and outputs each step result.
+
+**Acceptance criteria**
+All smoke tests pass (logs + DB + metrics). If any fail, collect logs and rollback.
+
+---
+
+### 8) Rollback plan
+
+* If backend fails health checks post-deploy, revert ECS service to previous taskDefinition revision:
+
+```bash
+aws ecs update-service --cluster filot-backend-cluster --service filot-backend-service --task-definition filot-backend-task:<previous_rev>
+```
+
+* If GPU worker fails, scale `desired-count` down to 0, diagnose instance; if issue with container image, re-tag previous image and re-deploy.
+
+**Quick runbook items**
+
+* How to scale ASG (increase capacity) if GPU jobs back up
+* How to drain & replace a GPU node
+* How to force re-queue stuck jobs (script `scripts/ops/requeue_stuck_jobs.sh`)
+
+---
+
+## Outputs / files to produce in T8-B
+
+Place these artifacts into `/infra/deployments/T8-B/` and commit to repo:
+
+* `infra/ecs/filot-backend-task.json` (task definition)
+* `infra/ecs/filot-backend-service.json` (service manifest)
+* `infra/ecs/filot-ocr-gpu-task.json` (GPU task definition)
+* `infra/ecs/filot-ocr-gpu-service.json` (service manifest)
+* `scripts/deploy-backend.sh` (build/push/register/update)
+* `scripts/deploy-ocr-gpu.sh` (build/push/register/create-service)
+* `scripts/smoke/run_e2e_smoke.sh`
+* `runbooks/T8B-deploy-runbook.md` (step-by-step operator guide)
+* `image-versions.json`
+* `logs/` — CloudWatch queries to run for validation
+* `alerts/cloudwatch-alarms.json` (CloudFormation or CLI commands)
+
+---
+
+## Acceptance Criteria (T8-B complete)
+
+* Backend API service running stable on ECS Fargate behind ALB, health checks green.
+* GPU worker running on g5.xlarge EC2 instance as ECS task, detects GPU and processes OCR jobs.
+* Redis and DB connectivity verified from tasks.
+* Temporal worker (if enabled) running and workflows tested.
+* CloudWatch dashboards and alarms created.
+* All smoke tests & E2E flow (KTP upload → OCR → scoring → BULI2) pass.
+* Runbook completed and signed off.
