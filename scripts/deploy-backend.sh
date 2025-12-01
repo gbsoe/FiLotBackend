@@ -87,13 +87,18 @@ verify_secrets() {
     log_step "Verifying required secrets in AWS Secrets Manager..."
     
     SECRETS=(
-        "filot/production/jwt-secret"
-        "filot/production/session-secret"
-        "filot/production/service-internal-key"
-        "filot/production/database-url"
-        "filot/production/redis"
-        "filot/production/cf-r2"
-        "filot/production/buli2"
+        "filot/jwt-secret"
+        "filot/session-secret"
+        "filot/service-internal-key"
+        "filot/database-url"
+        "filot/redis-url"
+        "filot/redis-password"
+        "filot/cf-r2-endpoint"
+        "filot/cf-r2-access-key"
+        "filot/cf-r2-secret-key"
+        "filot/cf-r2-bucket"
+        "filot/buli2-api-url"
+        "filot/buli2-api-key"
     )
     
     MISSING_SECRETS=()
@@ -200,8 +205,23 @@ cmd_register() {
         exit 1
     fi
     
+    # Create temporary task definition with updated image tag
+    TEMP_TASK_DEF="/tmp/filot-backend-task-def-temp.json"
+    
+    if command -v jq &> /dev/null; then
+        # Update image tag in task definition
+        FULL_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        jq --arg image "${FULL_IMAGE}" \
+           '.containerDefinitions[0].image = $image' \
+           "${TASK_DEFINITION_FILE}" > "${TEMP_TASK_DEF}"
+        log_info "Updated image reference: ${FULL_IMAGE}"
+    else
+        cp "${TASK_DEFINITION_FILE}" "${TEMP_TASK_DEF}"
+        log_warn "jq not found - using original task definition without image tag update"
+    fi
+    
     TASK_DEF_ARN=$(aws ecs register-task-definition \
-        --cli-input-json file://${TASK_DEFINITION_FILE} \
+        --cli-input-json file://${TEMP_TASK_DEF} \
         --region ${AWS_REGION} \
         --query 'taskDefinition.taskDefinitionArn' \
         --output text)
@@ -209,6 +229,9 @@ cmd_register() {
     log_info "Task definition registered: ${TASK_DEF_ARN}"
     
     echo "${TASK_DEF_ARN}" > /tmp/filot-backend-task-def-arn.txt
+    
+    # Cleanup
+    rm -f "${TEMP_TASK_DEF}"
 }
 
 cmd_update() {

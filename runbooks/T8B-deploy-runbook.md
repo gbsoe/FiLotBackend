@@ -85,7 +85,40 @@ All secrets must be present before deployment:
 | `filot/temporal-endpoint` | TEMPORAL_ENDPOINT |
 | `filot/temporal-namespace` | TEMPORAL_NAMESPACE |
 
-**Important**: ECS task definitions reference secrets by name (without suffix). Ensure the `ecsTaskExecutionRole` has `secretsmanager:GetSecretValue` permission on `arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/*`.
+**IMPORTANT - IAM Permissions Required**:
+
+ECS task definitions reference secrets by name (without the random suffix). The `ecsTaskExecutionRole` **must** have the following IAM policy:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "secretsmanager:GetSecretValue",
+            "Resource": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/*"
+        }
+    ]
+}
+```
+
+**Verify IAM role has wildcard permissions:**
+```bash
+aws iam get-role-policy --role-name ecsTaskExecutionRole --policy-name SecretsManagerAccess
+
+# Or attach managed policy
+aws iam put-role-policy \
+  --role-name ecsTaskExecutionRole \
+  --policy-name FilotSecretsAccess \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/*"
+    }]
+  }'
+```
 
 **Verify secrets exist:**
 ```bash
@@ -93,11 +126,13 @@ aws secretsmanager get-secret-value --secret-id filot/jwt-secret --region ap-sou
 aws secretsmanager get-secret-value --secret-id filot/database-url --region ap-southeast-2
 ```
 
-**If using full ARNs with suffix**: After creating secrets, update task definitions with full ARNs:
+**Alternative - Use full ARNs with suffix**: If you prefer explicit secret references, get full ARNs and update task definitions:
 ```bash
 # Get full ARN with suffix
 aws secretsmanager describe-secret --secret-id filot/jwt-secret --query 'ARN' --output text
 # Returns: arn:aws:secretsmanager:ap-southeast-2:070017891928:secret:filot/jwt-secret-AbCdEf
+
+# Then update infra/ecs/filot-backend-task.json with full ARN
 ```
 
 ### 2. ECR Repositories

@@ -20,8 +20,11 @@ ECR_REPOSITORY="filot-ocr-gpu-worker"
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ECS_CLUSTER="filot-ocr-gpu-cluster"
 ECS_SERVICE="filot-ocr-gpu-service"
-TASK_DEFINITION_FILE="${PROJECT_ROOT}/infra/ecs/task-ocr-gpu.json"
+TASK_DEFINITION_FILE="${PROJECT_ROOT}/infra/ecs/filot-ocr-gpu-task.json"
+SERVICE_DEFINITION_FILE="${PROJECT_ROOT}/infra/ecs/filot-ocr-gpu-service.json"
+VERSION_FILE="${PROJECT_ROOT}/infra/deployments/T8-B/image-versions.json"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -73,33 +76,86 @@ check_prerequisites() {
         exit 1
     fi
     
+    if ! command -v jq &> /dev/null; then
+        log_warn "jq is not installed - some features may not work"
+    fi
+    
     log_info "Prerequisites check passed."
+}
+
+update_image_versions() {
+    local component=$1
+    local tag=$2
+    local digest=$3
+    
+    if [ -f "${VERSION_FILE}" ]; then
+        if command -v jq &> /dev/null; then
+            jq --arg tag "$tag" \
+               --arg digest "$digest" \
+               --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+               '.images["ocr-gpu-worker"].tag = $tag | .images["ocr-gpu-worker"].digest = $digest | .images["ocr-gpu-worker"].deployed_at = $timestamp' \
+               "${VERSION_FILE}" > "${VERSION_FILE}.tmp" && mv "${VERSION_FILE}.tmp" "${VERSION_FILE}"
+            log_info "Updated image-versions.json"
+        fi
+    fi
 }
 
 cmd_build() {
     log_step "Building GPU OCR Worker Docker image..."
     
-    if [ -f "${SCRIPT_DIR}/build-gpu-worker.sh" ]; then
-        bash "${SCRIPT_DIR}/build-gpu-worker.sh"
-    else
-        log_error "build-gpu-worker.sh not found at ${SCRIPT_DIR}"
-        exit 1
-    fi
+    cd "${PROJECT_ROOT}/backend"
     
-    log_info "Build completed."
+    docker build \
+        --platform linux/amd64 \
+        -t "${ECR_REPOSITORY}:${IMAGE_TAG}" \
+        -t "${ECR_REPOSITORY}:${TIMESTAMP}" \
+        -f Dockerfile.gpu \
+        .
+    
+    log_info "Build completed: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+}
+
+verify_ecr_repo() {
+    log_step "Verifying ECR repository exists..."
+    
+    if ! aws ecr describe-repositories --repository-names "${ECR_REPOSITORY}" --region "${AWS_REGION}" &> /dev/null; then
+        log_warn "ECR repository ${ECR_REPOSITORY} not found. Creating..."
+        aws ecr create-repository \
+            --repository-name "${ECR_REPOSITORY}" \
+            --region "${AWS_REGION}" \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+        log_info "ECR repository created."
+    else
+        log_info "ECR repository exists."
+    fi
 }
 
 cmd_push() {
     log_step "Pushing Docker image to ECR..."
     
-    if [ -f "${SCRIPT_DIR}/aws-ecr-setup-gpu.sh" ]; then
-        bash "${SCRIPT_DIR}/aws-ecr-setup-gpu.sh"
-    else
-        log_error "aws-ecr-setup-gpu.sh not found at ${SCRIPT_DIR}"
-        exit 1
-    fi
+    verify_ecr_repo
     
-    log_info "Push completed."
+    # Login to ECR
+    aws ecr get-login-password --region "${AWS_REGION}" | \
+        docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+    
+    # Tag images
+    docker tag "${ECR_REPOSITORY}:${IMAGE_TAG}" "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+    docker tag "${ECR_REPOSITORY}:${IMAGE_TAG}" "${ECR_REGISTRY}/${ECR_REPOSITORY}:${TIMESTAMP}"
+    
+    # Push both tags
+    docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+    docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${TIMESTAMP}"
+    
+    # Get image digest
+    IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" 2>/dev/null || echo "unknown")
+    
+    log_info "Push completed: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+    log_info "Image Digest: ${IMAGE_DIGEST}"
+    
+    # Update image-versions.json
+    update_image_versions "ocr-gpu-worker" "${IMAGE_TAG}" "${IMAGE_DIGEST}"
 }
 
 cmd_register() {
@@ -110,23 +166,41 @@ cmd_register() {
         exit 1
     fi
     
+    # Create temporary task definition with updated image tag
+    TEMP_TASK_DEF="/tmp/filot-ocr-gpu-task-def-temp.json"
+    
+    if command -v jq &> /dev/null; then
+        # Update image tag in task definition
+        FULL_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        jq --arg image "${FULL_IMAGE}" \
+           '.containerDefinitions[0].image = $image' \
+           "${TASK_DEFINITION_FILE}" > "${TEMP_TASK_DEF}"
+        log_info "Updated image reference: ${FULL_IMAGE}"
+    else
+        cp "${TASK_DEFINITION_FILE}" "${TEMP_TASK_DEF}"
+        log_warn "jq not found - using original task definition without image tag update"
+    fi
+    
     TASK_DEF_ARN=$(aws ecs register-task-definition \
-        --cli-input-json file://${TASK_DEFINITION_FILE} \
+        --cli-input-json file://${TEMP_TASK_DEF} \
         --region ${AWS_REGION} \
         --query 'taskDefinition.taskDefinitionArn' \
         --output text)
     
     log_info "Task definition registered: ${TASK_DEF_ARN}"
     
-    echo "${TASK_DEF_ARN}" > /tmp/filot-task-def-arn.txt
+    echo "${TASK_DEF_ARN}" > /tmp/filot-ocr-gpu-task-def-arn.txt
+    
+    # Cleanup
+    rm -f "${TEMP_TASK_DEF}"
 }
 
 cmd_update() {
     log_step "Updating ECS service with new deployment..."
     
     TASK_DEF_ARN=""
-    if [ -f "/tmp/filot-task-def-arn.txt" ]; then
-        TASK_DEF_ARN=$(cat /tmp/filot-task-def-arn.txt)
+    if [ -f "/tmp/filot-ocr-gpu-task-def-arn.txt" ]; then
+        TASK_DEF_ARN=$(cat /tmp/filot-ocr-gpu-task-def-arn.txt)
     fi
     
     if aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" --region "${AWS_REGION}" 2>/dev/null | grep -q '"status": "ACTIVE"'; then
@@ -147,11 +221,54 @@ cmd_update() {
         
         log_info "ECS service updated: ${ECS_SERVICE}"
         log_info "Deployment triggered successfully."
+        
+        # Wait for deployment (with timeout for GPU workers)
+        log_info "Waiting for service to stabilize (this may take a few minutes for GPU instances)..."
+        aws ecs wait services-stable \
+            --cluster "${ECS_CLUSTER}" \
+            --services "${ECS_SERVICE}" \
+            --region "${AWS_REGION}" || log_warn "Wait timed out - check deployment status manually"
     else
         log_warn "ECS service ${ECS_SERVICE} not found or not active."
-        log_info "To create the service, use the service definition file:"
-        log_info "  aws ecs create-service --cli-input-json file://infra/ecs/service-ocr-gpu.json"
+        log_info "Creating new service..."
+        
+        if [ -f "${SERVICE_DEFINITION_FILE}" ]; then
+            aws ecs create-service \
+                --cli-input-json file://${SERVICE_DEFINITION_FILE} \
+                --region ${AWS_REGION} > /dev/null
+            log_info "Service created: ${ECS_SERVICE}"
+        else
+            log_error "Service definition file not found: ${SERVICE_DEFINITION_FILE}"
+            exit 1
+        fi
     fi
+}
+
+cmd_rollback() {
+    log_step "Rolling back to previous task definition..."
+    
+    # Get previous task definition revision
+    CURRENT_REV=$(aws ecs describe-services \
+        --cluster "${ECS_CLUSTER}" \
+        --services "${ECS_SERVICE}" \
+        --region "${AWS_REGION}" \
+        --query 'services[0].taskDefinition' \
+        --output text | grep -oP ':\K\d+$')
+    
+    if [ -z "${CURRENT_REV}" ] || [ "${CURRENT_REV}" -le 1 ]; then
+        log_error "Cannot rollback - no previous revision available"
+        exit 1
+    fi
+    
+    PREV_REV=$((CURRENT_REV - 1))
+    
+    aws ecs update-service \
+        --cluster "${ECS_CLUSTER}" \
+        --service "${ECS_SERVICE}" \
+        --task-definition "filot-ocr-gpu-worker:${PREV_REV}" \
+        --region "${AWS_REGION}" > /dev/null
+    
+    log_info "Rolled back to revision ${PREV_REV}"
 }
 
 cmd_all() {
@@ -171,7 +288,7 @@ cmd_all() {
 }
 
 show_usage() {
-    echo "Usage: $0 [build|push|register|update|all]"
+    echo "Usage: $0 [build|push|register|update|all|rollback]"
     echo ""
     echo "Commands:"
     echo "  build     Build Docker image locally"
@@ -179,6 +296,7 @@ show_usage() {
     echo "  register  Register ECS task definition"
     echo "  update    Update ECS service with force new deployment"
     echo "  all       Run all above commands in order (default)"
+    echo "  rollback  Rollback to previous task definition"
     echo ""
     echo "Environment Variables:"
     echo "  AWS_REGION      AWS region (default: ap-southeast-2)"
@@ -205,6 +323,9 @@ main() {
             ;;
         all)
             cmd_all
+            ;;
+        rollback)
+            cmd_rollback
             ;;
         -h|--help|help)
             show_usage
