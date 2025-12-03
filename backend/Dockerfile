@@ -35,9 +35,9 @@ RUN apk add --no-cache \
     ca-certificates \
     tesseract-ocr
 
-# Create non-root user
-RUN addgroup -g 1000 filot && \
-    adduser -u 1000 -G filot -s /bin/sh -D filot
+# Create non-root user (system user to avoid UID/GID conflicts)
+RUN addgroup -S filot && \
+    adduser -S filot -G filot
 
 WORKDIR /app
 
