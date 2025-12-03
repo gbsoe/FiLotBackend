@@ -1,0 +1,51 @@
+Please run a full audit of the project structure to determine the correct location of the Dockerfile and the buildspec.yml file.
+
+1. Verify the following:
+   - Does a Dockerfile exist inside the /backend directory?
+   - Is there a buildspec.yml in the project root?
+   - Does the buildspec.yml file reference the correct path to the Dockerfile?
+
+2. If the Dockerfile is inside /backend but buildspec.yml is in the project root, then perform the following fixes:
+   - Move buildspec.yml into the /backend directory.
+   - Update buildspec.yml so that it changes into the /backend directory before running `docker build`.
+   - Ensure its contents match this expected structure:
+
+     version: 0.2
+     env:
+       variables:
+         IMAGE_REPO_NAME: "filot-backend"
+         IMAGE_TAG: "latest"
+         AWS_REGION: "ap-southeast-2"
+         ACCOUNT_ID: "070017891928"
+
+     phases:
+       pre_build:
+         commands:
+           - echo Logging in to Amazon ECR...
+           - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+           - REPOSITORY_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_REPO_NAME
+
+       build:
+         commands:
+           - echo Building the Docker image...
+           - cd backend
+           - docker build -t $IMAGE_REPO_NAME .
+
+       post_build:
+         commands:
+           - echo Pushing the Docker image to ECR...
+           - docker tag $IMAGE_REPO_NAME:latest $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_REPO_NAME:latest
+           - docker push $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$IMAGE_REPO_NAME:latest
+
+     artifacts:
+       files:
+         - '**/*'
+
+3. After fixing, commit and push the changes to GitHub with the message:
+   "Move buildspec.yml into backend folder and update for CodeBuild compatibility"
+
+4. Provide me with a verification report summarizing:
+   - Where the Dockerfile is located
+   - Where buildspec.yml is now located
+   - Whether paths inside buildspec.yml are correct
+   - Git commit and push status
